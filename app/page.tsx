@@ -133,8 +133,8 @@ export default function Home() {
           {/* Stats strip */}
           <div className="grid grid-cols-2 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
             {/* A: Kill counter */}
-            <div className="bg-zinc-950 px-6 py-5 space-y-1.5">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Ideas killed</p>
+            <div className="bg-zinc-950 px-6 py-5 space-y-2">
+              <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Ideas killed</p>
               <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
                 {stats
                   ? stats.ideasKilled === 0
@@ -142,14 +142,14 @@ export default function Home() {
                     : displayCount.toLocaleString()
                   : '—'}
               </p>
-              <p className="text-[11px] text-zinc-700 leading-snug">
+              <p className="text-sm text-zinc-500 leading-snug">
                 distractions buried before they could ship
               </p>
             </div>
 
             {/* C: Signal-to-noise bar */}
             <div className="bg-zinc-950 px-6 py-5 space-y-3">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Filter rate</p>
+              <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Filter rate</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
                   {stats
@@ -158,15 +158,15 @@ export default function Home() {
                       : '—'
                     : '—'}
                 </p>
-                <p className="text-[10px] font-mono text-zinc-700">of ideas raised</p>
+                <p className="text-xs font-mono text-zinc-500">of ideas raised</p>
               </div>
-              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-violet-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(139,92,246,0.6)]"
                   style={{ width: `${barWidth}%` }}
                 />
               </div>
-              <p className="text-[11px] text-zinc-700 leading-snug">
+              <p className="text-sm text-zinc-500 leading-snug">
                 cleared in-session before becoming scope
               </p>
             </div>
