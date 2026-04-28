@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
 import { saveSession } from '@/lib/sessions'
 
 const TRIGGER = '<<begin>>'
@@ -287,10 +287,14 @@ export function ChatView({
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
   const [newSessionLoading, setNewSessionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
+  const [peerInput, setPeerInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const started = useRef(false)
+  const typingChannelRef = useRef<RealtimeChannel | null>(null)
+  const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, setMessages, sendMessage, status } = useChat({
     id: sessionId,
     transport: new DefaultChatTransport({ api: '/api/chat' }),
     messages: toUIMessages(initialMessages),
@@ -347,8 +351,10 @@ export function ChatView({
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
     )
-    const channel = sb
-      .channel(`artifacts-${sessionId}`)
+
+    // Layer 1 + 2: postgres_changes for artifacts, messages, and live streaming state
+    const dbChannel = sb
+      .channel(`session-db-${sessionId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'artifacts', filter: `session_id=eq.${sessionId}` },
@@ -356,13 +362,57 @@ export function ChatView({
           const row = payload.new as { type: string; content: string }
           if (row.type === 'vision') setVision(row.content)
           if (row.type === 'parking_lot') setParkingLot(row.content)
-          if (row.type === 'actions') {
-            setActions(row.content)
+          if (row.type === 'actions') setActions(row.content)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          const row = payload.new as { id: string; role: 'user' | 'assistant'; content: string }
+          setMessages((prev) => {
+            // Skip if this client already has the message (active user's optimistic state)
+            if (prev.some((m) => getTextContent(m) === row.content && m.role === row.role)) return prev
+            return [...prev, { id: row.id, role: row.role, parts: [{ type: 'text' as const, text: row.content }] }]
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'live_streams', filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setLiveStreamContent(null)
+          } else {
+            const row = payload.new as { content: string }
+            setLiveStreamContent(row.content)
           }
         }
       )
       .subscribe()
-    return () => { sb.removeChannel(channel) }
+
+    // Layer 3: broadcast channel for live typing sync
+    const typingChannel = sb.channel(`typing-${sessionId}`, {
+      config: { broadcast: { self: false } },
+    })
+    typingChannel
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        const text = (payload as { text: string }).text ?? ''
+        if (peerTypingTimerRef.current) clearTimeout(peerTypingTimerRef.current)
+        setPeerInput(text)
+        if (text) {
+          peerTypingTimerRef.current = setTimeout(() => setPeerInput(''), 3000)
+        }
+      })
+      .subscribe()
+
+    typingChannelRef.current = typingChannel
+
+    return () => {
+      if (peerTypingTimerRef.current) clearTimeout(peerTypingTimerRef.current)
+      sb.removeChannel(dbChannel)
+      sb.removeChannel(typingChannel)
+    }
   }, [sessionId])
 
   useEffect(() => {
@@ -376,11 +426,27 @@ export function ChatView({
     initialStatus === 'completed' ||
     messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
 
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const text = e.target.value
+    setInput(text)
+    typingChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { text },
+    }).catch(() => {})
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const text = input.trim()
     if (!text || isLoading) return
     setInput('')
+    // Clear peer typing display immediately on send
+    typingChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { text: '' },
+    }).catch(() => {})
     sendMessage({ text })
   }
 
@@ -680,6 +746,23 @@ export function ChatView({
               </div>
             ))}
 
+            {/* Layer 2: live stream visible to passive viewers while active user's response streams */}
+            {!isLoading && liveStreamContent && (
+              <div className="flex gap-4">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                  <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
+                </div>
+                <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{liveStreamContent}</p>
+                  <div className="flex items-center gap-1 pt-0.5">
+                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:300ms]" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isLoading && (
               <div className="flex gap-4">
                 <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
@@ -713,10 +796,17 @@ export function ChatView({
               </div>
             ) : (
               <>
+                {/* Layer 3: peer typing ghost — shows other person's draft before they send */}
+                {peerInput && (
+                  <div className="mb-3 bg-zinc-900/40 border border-zinc-800/40 rounded-lg px-4 py-2.5">
+                    <p className="text-[10px] font-mono text-zinc-600 mb-1.5">Co-founder typing…</p>
+                    <p className="text-sm text-zinc-500 leading-relaxed whitespace-pre-wrap">{peerInput}</p>
+                  </div>
+                )}
                 <form onSubmit={handleSubmit} className="flex gap-3 items-end">
                   <textarea
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()

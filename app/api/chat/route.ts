@@ -80,11 +80,32 @@ export async function POST(req: Request) {
     }
   }
 
+  // Accumulate text and flush partial response to live_streams every ~500ms
+  // so passive viewers see the response as it streams.
+  let accText = ''
+  let lastFlush = 0
+  const FLUSH_MS = 500
+
   const result = streamText({
     model: anthropic('claude-sonnet-4-6'),
     system: systemWithContext,
     messages: apiMessages,
     stopWhen: stepCountIs(10),
+    onChunk: ({ chunk }) => {
+      if (chunk.type === 'text-delta') {
+        accText += (chunk as { type: 'text-delta'; textDelta: string }).textDelta
+        const now = Date.now()
+        if (now - lastFlush >= FLUSH_MS) {
+          lastFlush = now
+          void sb
+            .from('live_streams')
+            .upsert(
+              { session_id: sessionId, content: accText, updated_at: new Date().toISOString() },
+              { onConflict: 'session_id' }
+            )
+        }
+      }
+    },
     tools: {
       emit_actions: tool({
         description:
@@ -156,13 +177,15 @@ export async function POST(req: Request) {
       }),
     },
     onFinish: async ({ text }) => {
-      if (text.trim()) {
-        await sb.from('messages').insert({
-          session_id: sessionId,
-          role: 'assistant',
-          content: text,
-        })
-      }
+      await Promise.all([
+        sb.from('live_streams').delete().eq('session_id', sessionId),
+        text.trim()
+          ? sb.from('messages').insert({ session_id: sessionId, role: 'assistant', content: text })
+          : Promise.resolve(),
+      ])
+    },
+    onError: async () => {
+      await sb.from('live_streams').delete().eq('session_id', sessionId)
     },
   })
 
