@@ -66,7 +66,6 @@ export function ChatView({
 
   const isLoading = status === 'streaming' || status === 'submitted'
 
-  // Auto-trigger opening question on fresh sessions
   useEffect(() => {
     if (initialMessages.length === 0 && !started.current) {
       started.current = true
@@ -74,7 +73,6 @@ export function ChatView({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Real-time artifact updates via Supabase
   useEffect(() => {
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,13 +93,11 @@ export function ChatView({
     return () => { sb.removeChannel(channel) }
   }, [sessionId])
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
-
   const visibleMessages = messages.filter((m) => getTextContent(m) !== TRIGGER)
 
   function handleSubmit(e: React.FormEvent) {
@@ -122,20 +118,21 @@ export function ChatView({
           </p>
         ) : null
       }
-      // v6 tool parts use type: 'tool-{toolName}'
       if (part.type === 'tool-emit_vision') {
         return (
-          <p key={i} className="text-xs font-mono text-emerald-500">
-            ↑ vision updated
-          </p>
+          <div key={i} className="flex items-center gap-2 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-xs font-mono text-emerald-500">Vision document updated</span>
+          </div>
         )
       }
       if (part.type === 'tool-park_idea') {
         const idea = (part as { type: string; input?: { idea?: string } }).input?.idea
         return (
-          <p key={i} className="text-xs font-mono text-amber-500">
-            → parked: {idea}
-          </p>
+          <div key={i} className="flex items-center gap-2 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-xs font-mono text-amber-500">Deferred: {idea}</span>
+          </div>
         )
       }
       return null
@@ -145,43 +142,53 @@ export function ChatView({
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="shrink-0 border-b border-zinc-800 px-5 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="font-bold tracking-tight">Кора</span>
-          <span className="text-zinc-600">·</span>
-          <span className="text-zinc-400 text-sm">Gate 1 — Vision Architect</span>
+      <header className="shrink-0 border-b border-zinc-800 px-6 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-semibold tracking-widest text-zinc-300 uppercase">
+            Kora
+          </span>
+          <span className="text-zinc-800">|</span>
+          <span className="text-xs font-mono text-zinc-500">Gate 1 — Vision Architect</span>
         </div>
-        {parkedCount > 0 && (
-          <button
-            onClick={() => setActiveTab('parking')}
-            className="text-xs text-amber-400 border border-amber-400/30 rounded px-2 py-1 hover:border-amber-400/60 transition-colors"
-          >
-            {parkedCount} parked
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {parkedCount > 0 && (
+            <button
+              onClick={() => setActiveTab('parking')}
+              className="flex items-center gap-1.5 text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-2.5 py-1 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
+            >
+              {parkedCount} deferred
+            </button>
+          )}
+          <span className="text-xs font-mono text-zinc-700">{sessionId.slice(0, 8)}</span>
+        </div>
       </header>
 
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5">
+          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
             {visibleMessages.length === 0 && (
-              <p className="text-zinc-600 text-sm italic">Starting session…</p>
+              <div className="flex items-center gap-2 text-zinc-600 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 animate-pulse" />
+                <span>Initializing session...</span>
+              </div>
             )}
 
             {visibleMessages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
-                  <span className="text-[10px] font-mono text-zinc-600 mt-1 shrink-0 select-none">К</span>
+                  <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center">
+                    <span className="text-[9px] font-bold font-mono text-zinc-500">K</span>
+                  </div>
                 )}
                 <div
-                  className={`max-w-[78%] space-y-1.5 ${
+                  className={`max-w-[76%] space-y-1.5 ${
                     message.role === 'user'
-                      ? 'bg-zinc-800 text-zinc-100 rounded-lg px-4 py-3'
+                      ? 'bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-4 py-3'
                       : 'text-zinc-200'
                   }`}
                 >
@@ -191,9 +198,15 @@ export function ChatView({
             ))}
 
             {isLoading && (
-              <div className="flex gap-3">
-                <span className="text-[10px] font-mono text-zinc-600 mt-1 select-none">К</span>
-                <p className="text-zinc-500 text-sm animate-pulse">…</p>
+              <div className="flex gap-4">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center">
+                  <span className="text-[9px] font-bold font-mono text-zinc-500">K</span>
+                </div>
+                <div className="flex items-center gap-1 pt-1.5">
+                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:300ms]" />
+                </div>
               </div>
             )}
             <div ref={bottomRef} />
@@ -211,84 +224,114 @@ export function ChatView({
                     handleSubmit(e as unknown as React.FormEvent)
                   }
                 }}
-                placeholder="Your answer…"
+                placeholder="Type your response..."
                 rows={3}
                 disabled={isLoading}
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-500 disabled:opacity-50 transition-colors"
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-700 disabled:opacity-50 transition-colors"
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-4 py-3 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors"
+                className="px-5 py-3 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white active:bg-zinc-200 transition-colors"
               >
                 Send
               </button>
             </form>
-            <p className="text-[11px] text-zinc-700 mt-2">Shift+Enter for new line</p>
+            <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">
+              Shift+Enter for a new line
+            </p>
           </div>
         </div>
 
         {/* Artifacts panel — hidden below lg */}
-        <aside className="hidden lg:flex flex-col w-[380px] border-l border-zinc-800">
-          <div className="shrink-0 flex border-b border-zinc-800">
+        <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800">
+          {/* Tabs */}
+          <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800 px-4 pt-3">
             <button
               onClick={() => setActiveTab('vision')}
-              className={`flex-1 py-3 text-xs font-medium transition-colors ${
+              className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
                 activeTab === 'vision'
-                  ? 'text-zinc-100 border-b-2 border-zinc-100 -mb-px'
+                  ? 'text-zinc-100 bg-zinc-900 border border-zinc-700 border-b-transparent -mb-px'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              vision.md
+              Vision Draft
             </button>
             <button
               onClick={() => setActiveTab('parking')}
-              className={`flex-1 py-3 text-xs font-medium transition-colors ${
+              className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
                 activeTab === 'parking'
-                  ? 'text-amber-400 border-b-2 border-amber-400 -mb-px'
+                  ? 'text-amber-400 bg-zinc-900 border border-zinc-700 border-b-transparent -mb-px'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              parking_lot.md{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-5">
             {activeTab === 'vision' ? (
               vision ? (
                 <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">
                   {vision}
                 </pre>
               ) : (
-                <p className="text-zinc-600 text-xs italic leading-relaxed">
-                  Not drafted yet. Кора generates vision.md once there is enough signal.
-                </p>
+                <div className="space-y-4 py-1">
+                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    Vision Document
+                  </p>
+                  <p className="text-xs text-zinc-600 leading-relaxed">
+                    Not drafted yet. Kora will generate your vision document once
+                    there is enough signal from the conversation.
+                  </p>
+                  <div className="border border-dashed border-zinc-800 rounded-lg p-4 space-y-2">
+                    {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map(
+                      (item) => (
+                        <div key={item} className="flex items-center gap-2.5">
+                          <span className="w-3 h-px bg-zinc-800" />
+                          <span className="text-[11px] text-zinc-700">{item}</span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
               )
             ) : parkingLot ? (
               <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">
                 {parkingLot}
               </pre>
             ) : (
-              <p className="text-zinc-600 text-xs italic leading-relaxed">No ideas parked yet.</p>
+              <div className="space-y-4 py-1">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                  Deferred Ideas
+                </p>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Out-of-scope ideas are saved here — not discarded, just deferred
+                  until the right gate.
+                </p>
+              </div>
             )}
           </div>
 
+          {/* Downloads */}
           {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800 px-4 py-3 flex gap-4">
+            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 flex items-center gap-2">
+              <span className="text-[11px] text-zinc-600 mr-1">Export</span>
               {vision && (
                 <button
                   onClick={() => download('vision.md', vision)}
-                  className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                 >
-                  ↓ vision.md
+                  vision.md
                 </button>
               )}
               {parkingLot && (
                 <button
                   onClick={() => download('parking_lot.md', parkingLot)}
-                  className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                 >
-                  ↓ parking_lot.md
+                  parking_lot.md
                 </button>
               )}
             </div>

@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Кора — AI-CEO",
-  description: "AI-CEO, который берёт идею с нуля и ведёт её до первых шагов.",
+  title: "Kora — Vision Architect",
+  description:
+    "Turn your raw idea into a focused one-page vision. Answer hard questions. Walk away with clarity.",
 };
 
 export default function RootLayout({

@@ -15,42 +15,80 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center px-6">
-      <div className="max-w-lg w-full space-y-10">
-        <div className="space-y-4">
-          <h1 className="text-5xl font-bold tracking-tight">Кора</h1>
-          <p className="text-zinc-400 text-lg leading-relaxed">
-            AI-CEO, который берёт идею с нуля и ведёт её до первых шагов.
-          </p>
-          <div className="border-t border-zinc-800 pt-4 space-y-2 text-sm text-zinc-500">
-            <p>Gate 1 — Vision Architect</p>
-            <p>
-              Paste your idea. Answer hard questions. Get a one-page vision and
-              a parking lot of everything we said NO to.
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+      {/* Nav */}
+      <nav className="border-b border-zinc-800/60 px-8 py-4 flex items-center justify-between">
+        <span className="text-sm font-semibold tracking-widest text-zinc-300 uppercase">
+          Kora
+        </span>
+        <span className="text-xs font-mono text-zinc-600">Gate 1 — Vision Architect</span>
+      </nav>
+
+      {/* Hero */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-24">
+        <div className="max-w-xl w-full space-y-12">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 border border-zinc-800 rounded-full px-3 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-xs text-zinc-400 font-mono">Vision Architect · Ready</span>
+            </div>
+
+            <h1 className="text-4xl font-bold tracking-tight leading-tight">
+              Turn your idea into<br />a focused vision.
+            </h1>
+
+            <p className="text-zinc-400 text-base leading-relaxed max-w-md">
+              Answer eight hard questions. Walk away with a one-page vision
+              document and a clear record of every scope decision made along the way.
             </p>
           </div>
-        </div>
 
-        <button
-          onClick={start}
-          disabled={loading}
-          className="inline-flex items-center gap-2 bg-zinc-100 text-zinc-900 font-medium px-6 py-3 rounded-lg hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Starting...' : 'Start →'}
-        </button>
+          <button
+            onClick={start}
+            disabled={loading}
+            className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+          >
+            {loading ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+                Starting session...
+              </>
+            ) : (
+              <>
+                Begin Session
+                <span className="text-zinc-500">→</span>
+              </>
+            )}
+          </button>
 
-        <div className="grid grid-cols-3 gap-6 text-xs text-zinc-600 border-t border-zinc-800 pt-8">
-          <div>
-            <p className="text-zinc-400 font-medium mb-1">vision.md</p>
-            <p>One page. The wedge sentence. Who, what pain, why now.</p>
-          </div>
-          <div>
-            <p className="text-zinc-400 font-medium mb-1">parking_lot.md</p>
-            <p>Every idea Кора said NO to. Saved, not lost.</p>
-          </div>
-          <div>
-            <p className="text-zinc-400 font-medium mb-1">Gate 1 only</p>
-            <p>Model, MVP, and Launch gates follow. One thing at a time.</p>
+          <div className="grid grid-cols-3 gap-6 border-t border-zinc-800 pt-10">
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
+                Output 1
+              </p>
+              <p className="text-sm font-semibold text-zinc-200">Vision Document</p>
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                One page. Wedge sentence, customer, pain point, and why now.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
+                Output 2
+              </p>
+              <p className="text-sm font-semibold text-zinc-200">Deferred Ideas</p>
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                Every out-of-scope request, logged and saved — not discarded.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
+                Gate 1 of 5
+              </p>
+              <p className="text-sm font-semibold text-zinc-200">Focus First</p>
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                Business model, MVP scope, and launch planning follow in sequence.
+              </p>
+            </div>
           </div>
         </div>
       </div>
