@@ -5,16 +5,46 @@ import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { saveSession, loadSessions, type StoredSession } from '@/lib/sessions'
 
+type Stats = { ideasKilled: number; completedSessions: number; killRate: number | null }
+
 export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const [recentSessions, setRecentSessions] = useState<StoredSession[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [displayCount, setDisplayCount] = useState(0)
+  const [barWidth, setBarWidth] = useState(0)
   const storyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setRecentSessions(loadSessions().slice(0, 3))
+    fetch('/api/stats')
+      .then((r) => r.json())
+      .then((s: Stats) => setStats(s))
+      .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!stats) return
+    const target = stats.ideasKilled
+    if (target === 0) return
+    const step = Math.max(1, Math.floor(target / 40))
+    let current = 0
+    const id = setInterval(() => {
+      current = Math.min(current + step, target)
+      setDisplayCount(current)
+      if (current >= target) clearInterval(id)
+    }, 30)
+    return () => clearInterval(id)
+  }, [stats])
+
+  useEffect(() => {
+    if (stats?.killRate != null) {
+      const t = setTimeout(() => setBarWidth(stats.killRate!), 80)
+      return () => clearTimeout(t)
+    }
+  }, [stats])
 
   async function start() {
     setLoading(true)
@@ -98,6 +128,48 @@ export default function Home() {
                 Couldn&apos;t start session — please try again.
               </p>
             )}
+          </div>
+
+          {/* Stats strip */}
+          <div className="grid grid-cols-2 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
+            {/* A: Kill counter */}
+            <div className="bg-zinc-950 px-6 py-5 space-y-1.5">
+              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Ideas killed</p>
+              <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
+                {stats
+                  ? stats.ideasKilled === 0
+                    ? '0'
+                    : displayCount.toLocaleString()
+                  : '—'}
+              </p>
+              <p className="text-[11px] text-zinc-700 leading-snug">
+                distractions buried before they could ship
+              </p>
+            </div>
+
+            {/* C: Signal-to-noise bar */}
+            <div className="bg-zinc-950 px-6 py-5 space-y-3">
+              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Filter rate</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
+                  {stats
+                    ? stats.killRate != null
+                      ? `${stats.killRate}%`
+                      : '—'
+                    : '—'}
+                </p>
+                <p className="text-[10px] font-mono text-zinc-700">of ideas raised</p>
+              </div>
+              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(139,92,246,0.6)]"
+                  style={{ width: `${barWidth}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-zinc-700 leading-snug">
+                cleared in-session before becoming scope
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-6 border-t border-zinc-800/60 pt-10">
