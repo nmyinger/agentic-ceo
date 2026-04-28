@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(10),
     onChunk: ({ chunk }) => {
       if (chunk.type === 'text-delta') {
-        accText += (chunk as { type: 'text-delta'; textDelta: string }).textDelta
+        accText += (chunk as { type: 'text-delta'; text: string }).text
         const now = Date.now()
         if (now - lastFlush >= FLUSH_MS) {
           lastFlush = now
