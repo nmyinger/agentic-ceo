@@ -52,58 +52,109 @@ function countCompletedActions(content: string): { done: number; total: number }
 }
 
 function ActionPlan({ content }: { content: string }) {
+  const { done, total } = countCompletedActions(content)
   return (
-    <div className="space-y-1">
-      {content.split('\n').map((line, i) => {
-        if (line.startsWith('# ')) {
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-sky-400/80 uppercase tracking-wider">Action Plan</span>
+          {total > 0 && (
+            <span className="text-[11px] font-mono text-sky-400/80">{done} / {total}</span>
+          )}
+        </div>
+        {total > 0 && (
+          <div className="h-[3px] w-full rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+              style={{ width: `${Math.round((done / total) * 100)}%` }}
+            />
+          </div>
+        )}
+      </div>
+      <div className="space-y-1">
+        {content.split('\n').map((line, i) => {
+          if (line.startsWith('# ')) {
+            return (
+              <p key={i} className="text-xs font-semibold text-sky-400/70 uppercase tracking-wider pb-2">
+                {line.slice(2)}
+              </p>
+            )
+          }
+          if (line.startsWith('## ')) {
+            return (
+              <p key={i} className="text-[11px] font-semibold text-sky-600 uppercase tracking-wider pt-4 pb-1 first:pt-0">
+                {line.slice(3)}
+              </p>
+            )
+          }
+          if (line.startsWith('- [x] ') || line.startsWith('- [X] ')) {
+            return (
+              <div key={i} className="flex items-start gap-2.5 py-0.5">
+                <span className="mt-0.5 w-3.5 h-3.5 rounded border border-emerald-700/60 bg-emerald-950/50 shrink-0 flex items-center justify-center">
+                  <span className="text-[8px] leading-none text-emerald-400">✓</span>
+                </span>
+                <span className="text-xs text-zinc-600 leading-snug line-through">{line.slice(6)}</span>
+              </div>
+            )
+          }
+          if (line.startsWith('- [ ] ')) {
+            return (
+              <div key={i} className="flex items-start gap-2.5 py-0.5">
+                <span className="mt-0.5 w-3.5 h-3.5 rounded border border-sky-800/70 shrink-0 bg-zinc-900/80" />
+                <span className="text-xs text-zinc-300 leading-snug">{line.slice(6)}</span>
+              </div>
+            )
+          }
+          if (line.startsWith('- ')) {
+            return (
+              <div key={i} className="flex items-start gap-2.5 py-0.5">
+                <span className="mt-1.5 w-1 h-1 rounded-full bg-zinc-700 shrink-0" />
+                <span className="text-xs text-zinc-400 leading-snug">{line.slice(2)}</span>
+              </div>
+            )
+          }
+          if (line.trim() === '' || line === '---') {
+            return <div key={i} className="h-1" />
+          }
           return (
-            <p key={i} className="text-xs font-semibold text-zinc-400 uppercase tracking-wider pb-2">
-              {line.slice(2)}
+            <p key={i} className="text-xs text-zinc-500 leading-relaxed">
+              {line}
             </p>
           )
-        }
-        if (line.startsWith('## ')) {
-          return (
-            <p key={i} className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider pt-4 pb-1 first:pt-0">
-              {line.slice(3)}
-            </p>
-          )
-        }
-        if (line.startsWith('- [x] ') || line.startsWith('- [X] ')) {
-          return (
-            <div key={i} className="flex items-start gap-2.5 py-0.5">
-              <span className="mt-0.5 w-3.5 h-3.5 rounded border border-emerald-700/60 bg-emerald-950/50 shrink-0 flex items-center justify-center">
-                <span className="text-[8px] leading-none text-emerald-400">✓</span>
-              </span>
-              <span className="text-xs text-zinc-600 leading-snug line-through">{line.slice(6)}</span>
-            </div>
-          )
-        }
-        if (line.startsWith('- [ ] ')) {
-          return (
-            <div key={i} className="flex items-start gap-2.5 py-0.5">
-              <span className="mt-0.5 w-3.5 h-3.5 rounded border border-zinc-700 shrink-0 bg-zinc-900/80" />
-              <span className="text-xs text-zinc-300 leading-snug">{line.slice(6)}</span>
-            </div>
-          )
-        }
-        if (line.startsWith('- ')) {
-          return (
-            <div key={i} className="flex items-start gap-2.5 py-0.5">
-              <span className="mt-1.5 w-1 h-1 rounded-full bg-zinc-700 shrink-0" />
-              <span className="text-xs text-zinc-400 leading-snug">{line.slice(2)}</span>
-            </div>
-          )
-        }
-        if (line.trim() === '' || line === '---') {
-          return <div key={i} className="h-1" />
-        }
-        return (
-          <p key={i} className="text-xs text-zinc-500 leading-relaxed">
-            {line}
-          </p>
-        )
-      })}
+        })}
+      </div>
+    </div>
+  )
+}
+
+function parseParkingLot(content: string) {
+  return content
+    .split('\n')
+    .filter((l) => l.startsWith('|') && !l.includes('Date') && !l.includes('----'))
+    .map((l) => {
+      const cols = l.split('|').map((c) => c.trim()).filter(Boolean)
+      return { date: cols[0] ?? '', idea: cols[1] ?? '', reason: cols[2] ?? '' }
+    })
+    .filter((item) => item.idea)
+}
+
+function DeferredList({ content }: { content: string }) {
+  const items = parseParkingLot(content)
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-amber-500/80 uppercase tracking-wider">Deferred Ideas</span>
+        <span className="text-[11px] font-mono text-amber-500/80">{items.length}</span>
+      </div>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div key={i} className="pl-3 border-l-2 border-amber-900/60 space-y-0.5 py-0.5">
+            <p className="text-xs text-zinc-200 leading-snug">{item.idea}</p>
+            <p className="text-[11px] text-zinc-500 leading-snug">{item.reason}</p>
+            <p className="text-[10px] font-mono text-zinc-700">{item.date}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -162,10 +213,10 @@ function VisionProgress({ content }: { content: string }) {
       {/* Progress header */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+          <span className="text-[11px] font-semibold text-violet-400/80 uppercase tracking-wider">
             Vision Progress
           </span>
-          <span className="text-[11px] font-mono text-zinc-500">
+          <span className="text-[11px] font-mono text-violet-400/80">
             {completedCount} / {sections.length}
           </span>
         </div>
@@ -539,14 +590,14 @@ export function ChatView({
         <ActionPlan content={actions} />
       ) : (
         <div className="space-y-4 py-1">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Action Plan</p>
+          <p className="text-xs font-semibold text-sky-400/70 uppercase tracking-wider">Action Plan</p>
           <p className="text-xs text-zinc-600 leading-relaxed">
             Your action plan will appear here as the conversation starts — concrete steps you can take today.
           </p>
           <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2.5">
             {['Do Now', 'Complete This Week', 'Gate 1 Exit Checklist'].map((item) => (
               <div key={item} className="flex items-center gap-2.5">
-                <span className="w-3.5 h-3.5 rounded border border-zinc-800 shrink-0" />
+                <span className="w-3.5 h-3.5 rounded border border-sky-900/60 shrink-0" />
                 <span className="text-[11px] text-zinc-700">{item}</span>
               </div>
             ))}
@@ -557,13 +608,21 @@ export function ChatView({
 
     if (activeTab === 'parking') {
       return parkingLot ? (
-        <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{parkingLot}</pre>
+        <DeferredList content={parkingLot} />
       ) : (
         <div className="space-y-4 py-1">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deferred Ideas</p>
+          <p className="text-xs font-semibold text-amber-500/70 uppercase tracking-wider">Deferred Ideas</p>
           <p className="text-xs text-zinc-600 leading-relaxed">
-            Out-of-scope ideas are saved here — not discarded, just deferred until the right gate.
+            Out-of-scope ideas land here — not discarded, just deferred until the right gate.
           </p>
+          <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2.5">
+            {['Second persona or market', 'Extra features', 'Partnership ideas'].map((item) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-900/60 shrink-0" />
+                <span className="text-[11px] text-zinc-700">{item}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )
     }
