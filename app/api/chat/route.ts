@@ -1,4 +1,4 @@
-import { streamText, tool, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
+import { streamText, generateText, tool, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { supabaseServer } from '@/lib/supabase'
@@ -177,11 +177,30 @@ export async function POST(req: Request) {
       }),
     },
     onFinish: async ({ text }) => {
+      // Generate a short title once, after the very first exchange
+      const titleOp =
+        realMessageCount === 1 && lastMsg?.role === 'user'
+          ? (() => {
+              const firstUserText = getMessageText(lastMsg as UIMessage)
+              if (!firstUserText || firstUserText.startsWith('<<')) return Promise.resolve()
+              return generateText({
+                model: anthropic('claude-haiku-4-5-20251001'),
+                prompt: `5 words or fewer: title for this startup idea. Only the title, no quotes.\n\n${firstUserText.slice(0, 400)}`,
+              })
+                .then(({ text: title }) => {
+                  const clean = title.trim().replace(/^["\s]+|["\s.]+$/g, '')
+                  if (clean) return sb.from('sessions').update({ idea: clean }).eq('id', sessionId)
+                })
+                .catch(() => {})
+            })()
+          : Promise.resolve()
+
       await Promise.all([
         sb.from('live_streams').delete().eq('session_id', sessionId),
         text.trim()
           ? sb.from('messages').insert({ session_id: sessionId, role: 'assistant', content: text })
           : Promise.resolve(),
+        titleOp,
       ])
     },
     onError: async () => {

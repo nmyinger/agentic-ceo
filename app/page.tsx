@@ -6,19 +6,36 @@ import { useState, useRef, useEffect } from 'react'
 import { saveSession, loadSessions, type StoredSession } from '@/lib/sessions'
 
 type Stats = { ideasKilled: number; completedSessions: number; killRate: number | null }
+type RecentSession = StoredSession & { title?: string }
 
 export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
-  const [recentSessions, setRecentSessions] = useState<StoredSession[]>([])
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [displayCount, setDisplayCount] = useState(0)
   const [barWidth, setBarWidth] = useState(0)
   const storyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setRecentSessions(loadSessions().slice(0, 3))
+    const stored = loadSessions().slice(0, 3)
+    setRecentSessions(stored)
+    if (stored.length > 0) {
+      fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: stored.map((s) => s.id) }),
+      })
+        .then((r) => r.json())
+        .then(({ sessions }: { sessions: { id: string; idea: string | null }[] }) => {
+          setRecentSessions(stored.map((s) => ({
+            ...s,
+            title: sessions.find((ss) => ss.id === s.id)?.idea ?? undefined,
+          })))
+        })
+        .catch(() => {})
+    }
     fetch('/api/stats')
       .then((r) => r.json())
       .then((s: Stats) => setStats(s))
@@ -221,10 +238,10 @@ export default function Home() {
                     href={`/session/${s.id}`}
                     className="flex items-center justify-between group border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/15 rounded-lg px-3.5 py-2.5 transition-all"
                   >
-                    <span className="text-xs font-mono text-zinc-500 group-hover:text-violet-300 transition-colors">
-                      {s.id.slice(0, 8)}
+                    <span className="text-xs text-zinc-300 group-hover:text-violet-200 transition-colors truncate">
+                      {s.title ?? s.id.slice(0, 8)}
                     </span>
-                    <span className="text-[10px] text-zinc-700">
+                    <span className="text-[10px] text-zinc-700 shrink-0">
                       {new Date(s.savedAt).toLocaleDateString()}
                     </span>
                   </Link>
