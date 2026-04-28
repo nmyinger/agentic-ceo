@@ -478,6 +478,10 @@ export function ChatView({
     el.style.height = `${el.scrollHeight}px`
   }, [input])
 
+  useEffect(() => {
+    if (!isLoading) textareaRef.current?.focus()
+  }, [isLoading])
+
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
   const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
   const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
