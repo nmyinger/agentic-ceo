@@ -427,6 +427,14 @@ export function ChatView({
     if (parts.length) download('kora-session.md', parts.join(''))
   }
 
+  // Derived values — must be declared before useEffects that reference them
+  const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
+  const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
+  const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
+  const isCompleted =
+    initialStatus === 'completed' ||
+    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
+
   useEffect(() => {
     saveSession(sessionId)
   }, [sessionId])
@@ -556,13 +564,6 @@ export function ChatView({
     }
     return () => { document.title = 'Kora — Vision Architect' }
   }, [vision, isLoading, isCompleted])
-
-  const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
-  const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
-  const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
-  const isCompleted =
-    initialStatus === 'completed' ||
-    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value
