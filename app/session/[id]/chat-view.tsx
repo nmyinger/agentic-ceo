@@ -481,6 +481,21 @@ export function ChatView({
     if (!isLoading) textareaRef.current?.focus()
   }, [isLoading])
 
+  // Feature 1: Live Tab Title
+  useEffect(() => {
+    const { title } = parseVisionDocument(vision)
+    if (isLoading) {
+      document.title = 'Kora is thinking…'
+    } else if (isCompleted && title) {
+      document.title = `${title} — Kora`
+    } else if (title) {
+      document.title = `${title} — Kora`
+    } else {
+      document.title = 'Kora — Vision Architect'
+    }
+    return () => { document.title = 'Kora — Vision Architect' }
+  }, [vision, isLoading, isCompleted])
+
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
   const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
   const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
