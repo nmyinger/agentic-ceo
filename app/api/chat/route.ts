@@ -11,21 +11,48 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer()
 
-  // Convert UIMessages to model messages and ensure Anthropic's user-first requirement
-  const modelMessages = await convertToModelMessages(messages)
-  const apiMessages =
-    modelMessages.length === 0 || modelMessages[0]?.role !== 'user'
-      ? [{ role: 'user' as const, content: '<<begin>>' }, ...modelMessages]
-      : modelMessages
+  // Fetch current artifacts so the agent knows what it has already written
+  const { data: artifacts } = await sb
+    .from('artifacts')
+    .select('type, content')
+    .eq('session_id', sessionId)
 
-  // Persist the newest user message (skip the <<begin>> trigger)
+  const visionArtifact = artifacts?.find((a) => a.type === 'vision')
+  const parkingArtifact = artifacts?.find((a) => a.type === 'parking_lot')
+  const messageCount = messages.filter((m) => m.role === 'user' || m.role === 'assistant').length
+
+  // Inject session state into system prompt so the agent can see its own artifacts
+  const contextLines: string[] = ['\n---\n## Session context\n', `Messages so far: ${messageCount}`]
+  if (visionArtifact) {
+    contextLines.push(`Phase: 2 or 3 — vision draft exists.\n\nCurrent vision.md:\n${visionArtifact.content}`)
+  } else {
+    contextLines.push('Phase: 1 — no vision draft yet. Start with The User section.')
+  }
+  if (parkingArtifact) {
+    contextLines.push(`\nCurrent parking_lot.md:\n${parkingArtifact.content}`)
+  }
+
+  const systemWithContext = VISION_ARCHITECT_SYSTEM + contextLines.join('\n')
+
+  const modelMessages = await convertToModelMessages(messages)
+
+  // Smarter trigger: tell the agent whether it is starting fresh or resuming
+  let apiMessages = modelMessages
+  if (modelMessages.length === 0 || modelMessages[0]?.role !== 'user') {
+    const trigger = visionArtifact
+      ? `<<resume>> A vision draft exists. Read it in the session context, identify the weakest section, and ask your next question.`
+      : `<<begin>>`
+    apiMessages = [{ role: 'user' as const, content: trigger }, ...modelMessages]
+  }
+
+  // Persist the newest user message (skip internal trigger messages)
   const lastMsg = messages[messages.length - 1]
   if (lastMsg?.role === 'user') {
     const text = lastMsg.parts
       ?.filter((p) => p.type === 'text')
       .map((p) => (p as { type: 'text'; text: string }).text)
       .join('')
-    if (text && text !== '<<begin>>') {
+    if (text && !text.startsWith('<<')) {
       await Promise.all([
         sb.from('messages').insert({ session_id: sessionId, role: 'user', content: text }),
         sb
@@ -39,13 +66,13 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: anthropic('claude-sonnet-4-6'),
-    system: VISION_ARCHITECT_SYSTEM,
+    system: systemWithContext,
     messages: apiMessages,
     stopWhen: stepCountIs(10),
     tools: {
       emit_vision: tool({
         description:
-          'Publish or update vision.md. Call after ~6 exchanges when you have enough signal for a first draft. Update as answers sharpen.',
+          'Publish or update vision.md. Call after ~6 exchanges with a first draft — use [TBD] for missing sections. Update whenever a section meaningfully sharpens. Always emit after the Wedge section is filled.',
         inputSchema: z.object({
           content: z.string().describe('Full markdown content of vision.md'),
         }),
@@ -59,7 +86,7 @@ export async function POST(req: Request) {
       }),
       park_idea: tool({
         description:
-          'Park an out-of-scope idea immediately when the founder introduces a feature, market, or channel not essential to the core wedge.',
+          'Immediately park an out-of-scope idea when the founder introduces a second persona, extra feature, new market, or second channel not essential to the core wedge.',
         inputSchema: z.object({
           idea: z.string().describe('The idea being parked — concise label'),
           reason: z.string().describe('Why it is out of scope right now'),
@@ -83,6 +110,18 @@ export async function POST(req: Request) {
             { onConflict: 'session_id,type' }
           )
           return { parked: true }
+        },
+      }),
+      mark_complete: tool({
+        description:
+          'Mark Gate 1 complete. Call only when: all six vision sections are specific (no [TBD]), the wedge sentence follows the formula exactly, and the founder has recited it unprompted. After calling this, stop asking questions.',
+        inputSchema: z.object({
+          wedge_sentence: z.string().describe('The final wedge sentence the founder stated'),
+          summary: z.string().describe('One sentence on what sharpened most in this session'),
+        }),
+        execute: async ({ wedge_sentence, summary }) => {
+          await sb.from('sessions').update({ status: 'completed' }).eq('id', sessionId)
+          return { completed: true, wedge_sentence, summary }
         },
       }),
     },

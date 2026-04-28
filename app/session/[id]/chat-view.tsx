@@ -48,11 +48,13 @@ export function ChatView({
   initialMessages,
   initialVision,
   initialParkingLot,
+  initialStatus,
 }: {
   sessionId: string
   initialMessages: DbMessage[]
   initialVision: string
   initialParkingLot: string
+  initialStatus: string
 }) {
   const router = useRouter()
   const [input, setInput] = useState('')
@@ -141,7 +143,13 @@ export function ChatView({
   }, [messages, isLoading])
 
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
-  const visibleMessages = messages.filter((m) => getTextContent(m) !== TRIGGER)
+  const visibleMessages = messages.filter((m) => {
+    const text = getTextContent(m)
+    return !text.startsWith('<<')
+  })
+  const isCompleted =
+    initialStatus === 'completed' ||
+    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -175,6 +183,18 @@ export function ChatView({
           <div key={i} className="flex items-center gap-2 mt-1">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
             <span className="text-xs font-mono text-amber-500">Deferred: {idea}</span>
+          </div>
+        )
+      }
+      if (part.type === 'tool-mark_complete') {
+        const wedge = (part as { type: string; input?: { wedge_sentence?: string } }).input?.wedge_sentence
+        return (
+          <div key={i} className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              <span className="text-xs font-mono text-emerald-400 font-semibold">Gate 1 complete</span>
+            </div>
+            {wedge && <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{wedge}&rdquo;</p>}
           </div>
         )
       }
@@ -401,32 +421,50 @@ export function ChatView({
 
           {/* Input */}
           <div className="shrink-0 border-t border-zinc-800/60 p-4">
-            <form onSubmit={handleSubmit} className="flex gap-3 items-end">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSubmit(e as unknown as React.FormEvent)
-                  }
-                }}
-                placeholder="Type your response..."
-                rows={3}
-                disabled={isLoading}
-                className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all"
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className="px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
-              >
-                Send
-              </button>
-            </form>
-            <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">
-              Shift+Enter for a new line
-            </p>
+            {isCompleted ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+                </div>
+                <button
+                  onClick={startNewSession}
+                  disabled={newSessionLoading}
+                  className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                >
+                  {newSessionLoading ? 'Starting…' : 'New session →'}
+                </button>
+              </div>
+            ) : (
+              <>
+                <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSubmit(e as unknown as React.FormEvent)
+                      }
+                    }}
+                    placeholder="Type your response..."
+                    rows={3}
+                    disabled={isLoading}
+                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    className="px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
+                  >
+                    Send
+                  </button>
+                </form>
+                <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">
+                  Shift+Enter for a new line
+                </p>
+              </>
+            )}
           </div>
         </div>
 

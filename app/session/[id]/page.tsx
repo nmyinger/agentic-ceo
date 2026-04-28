@@ -5,7 +5,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const { id } = await params
   const sb = supabaseServer()
 
-  const { data: session } = await sb.from('sessions').select('id').eq('id', id).single()
+  const { data: session } = await sb.from('sessions').select('id, status').eq('id', id).single()
   if (!session) notFound()
 
   const { data: dbMessages } = await sb
@@ -34,6 +34,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       initialMessages={initialMessages}
       initialVision={visionContent}
       initialParkingLot={parkingContent}
+      initialStatus={(session.status as string) ?? 'active'}
     />
   )
 }
