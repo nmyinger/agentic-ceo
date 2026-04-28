@@ -185,22 +185,21 @@ export function ChatView({
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="shrink-0 border-b border-zinc-800 px-6 py-3.5 flex items-center justify-between">
+      <header className="shrink-0 border-b border-zinc-800/60 px-6 py-3.5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="text-sm font-semibold tracking-widest text-zinc-300 uppercase hover:text-zinc-100 transition-colors"
+            className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
           >
             Kora
           </Link>
           <span className="text-zinc-800">|</span>
-          <span className="text-xs font-mono text-zinc-500 hidden sm:block">Gate 1 — Vision Architect</span>
+          <span className="text-xs font-mono text-zinc-600 hidden sm:block">Gate 1 — Vision Architect</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Mobile: open artifacts overlay */}
           <button
             onClick={() => openMobileArtifacts('vision')}
-            className="lg:hidden text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+            className="lg:hidden text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Artifacts
           </button>
@@ -214,20 +213,20 @@ export function ChatView({
           )}
           <button
             onClick={copyUrl}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors font-mono"
+            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all font-mono"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           <Link
             href={`/session/${sessionId}/view`}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Share ↗
           </Link>
           <button
             onClick={startNewSession}
             disabled={newSessionLoading}
-            className="text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {newSessionLoading ? 'Starting…' : 'New session'}
           </button>
@@ -246,12 +245,12 @@ export function ChatView({
       {/* Mobile artifacts overlay */}
       {showMobileArtifacts && (
         <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800">
+          <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800/60">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setActiveTab('vision')}
                 className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
-                  activeTab === 'vision' ? 'text-zinc-100' : 'text-zinc-500'
+                  activeTab === 'vision' ? 'text-violet-300' : 'text-zinc-500'
                 }`}
               >
                 Vision Draft
@@ -282,7 +281,7 @@ export function ChatView({
                   <p className="text-xs text-zinc-600 leading-relaxed">
                     Not drafted yet. Kora will generate your vision document once there is enough signal from the conversation.
                   </p>
-                  <div className="border border-dashed border-zinc-800 rounded-lg p-4 space-y-2">
+                  <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
                     {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map((item) => (
                       <div key={item} className="flex items-center gap-2.5">
                         <span className="w-3 h-px bg-zinc-800" />
@@ -304,13 +303,13 @@ export function ChatView({
             )}
           </div>
           {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 space-y-3">
+            <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-zinc-600 mr-1">Export</span>
                 {vision && (
                   <button
                     onClick={() => download('vision.md', vision)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                   >
                     vision.md
                   </button>
@@ -318,7 +317,7 @@ export function ChatView({
                 {parkingLot && (
                   <button
                     onClick={() => download('parking_lot.md', parkingLot)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                   >
                     parking_lot.md
                   </button>
@@ -335,13 +334,13 @@ export function ChatView({
               <div className="flex items-center gap-3">
                 <button
                   onClick={copyUrl}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors font-mono"
+                  className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors font-mono"
                 >
                   {copied ? 'Copied!' : 'Copy link'}
                 </button>
                 <Link
                   href={`/session/${sessionId}/view`}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors"
                 >
                   Share view ↗
                 </Link>
@@ -369,14 +368,14 @@ export function ChatView({
                 className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
-                  <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center">
-                    <span className="text-[9px] font-bold font-mono text-zinc-500">K</span>
+                  <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                    <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                   </div>
                 )}
                 <div
                   className={`max-w-[76%] space-y-1.5 ${
                     message.role === 'user'
-                      ? 'bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl px-4 py-3'
+                      ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
                       : 'text-zinc-200'
                   }`}
                 >
@@ -387,8 +386,8 @@ export function ChatView({
 
             {isLoading && (
               <div className="flex gap-4">
-                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center">
-                  <span className="text-[9px] font-bold font-mono text-zinc-500">K</span>
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                  <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="flex items-center gap-1 pt-1.5">
                   <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
@@ -401,7 +400,7 @@ export function ChatView({
           </div>
 
           {/* Input */}
-          <div className="shrink-0 border-t border-zinc-800 p-4">
+          <div className="shrink-0 border-t border-zinc-800/60 p-4">
             <form onSubmit={handleSubmit} className="flex gap-3 items-end">
               <textarea
                 value={input}
@@ -415,12 +414,12 @@ export function ChatView({
                 placeholder="Type your response..."
                 rows={3}
                 disabled={isLoading}
-                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-700 disabled:opacity-50 transition-colors"
+                className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all"
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-5 py-3 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white active:bg-zinc-200 transition-colors"
+                className="px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
               >
                 Send
               </button>
@@ -432,14 +431,14 @@ export function ChatView({
         </div>
 
         {/* Artifacts panel — hidden below lg */}
-        <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800">
+        <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800/60">
           {/* Tabs */}
-          <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800 px-4 pt-3">
+          <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-3">
             <button
               onClick={() => setActiveTab('vision')}
               className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
                 activeTab === 'vision'
-                  ? 'text-zinc-100 bg-zinc-900 border border-zinc-700 border-b-transparent -mb-px'
+                  ? 'text-violet-300 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -449,7 +448,7 @@ export function ChatView({
               onClick={() => setActiveTab('parking')}
               className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
                 activeTab === 'parking'
-                  ? 'text-amber-400 bg-zinc-900 border border-zinc-700 border-b-transparent -mb-px'
+                  ? 'text-amber-400 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -473,7 +472,7 @@ export function ChatView({
                     Not drafted yet. Kora will generate your vision document once
                     there is enough signal from the conversation.
                   </p>
-                  <div className="border border-dashed border-zinc-800 rounded-lg p-4 space-y-2">
+                  <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
                     {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map(
                       (item) => (
                         <div key={item} className="flex items-center gap-2.5">
@@ -504,13 +503,13 @@ export function ChatView({
 
           {/* Downloads */}
           {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 space-y-3">
+            <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-zinc-600 mr-1">Export</span>
                 {vision && (
                   <button
                     onClick={() => download('vision.md', vision)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                   >
                     vision.md
                   </button>
@@ -518,7 +517,7 @@ export function ChatView({
                 {parkingLot && (
                   <button
                     onClick={() => download('parking_lot.md', parkingLot)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                   >
                     parking_lot.md
                   </button>
@@ -534,7 +533,7 @@ export function ChatView({
               </div>
               <Link
                 href={`/session/${sessionId}/view`}
-                className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-violet-300 transition-colors"
               >
                 <span>Share read-only view</span>
                 <span>↗</span>

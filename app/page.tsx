@@ -34,8 +34,8 @@ export default function Home() {
   return (
     <main className="bg-zinc-950 text-zinc-100">
       {/* Nav */}
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/60 px-8 py-4 flex items-center justify-between bg-zinc-950/95 backdrop-blur-sm">
-        <span className="text-sm font-semibold tracking-widest text-zinc-300 uppercase">
+      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
+        <span className="text-sm font-semibold tracking-widest text-zinc-200 uppercase">
           Kora
         </span>
         <div className="flex items-center gap-4">
@@ -52,15 +52,20 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-6 py-24">
+      <section
+        className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-6 py-24"
+        style={{
+          background: 'radial-gradient(ellipse 80% 55% at 50% -5%, rgba(139,92,246,0.13) 0%, transparent 65%)',
+        }}
+      >
         <div className="max-w-xl w-full space-y-12">
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 border border-zinc-800 rounded-full px-3 py-1.5">
+            <div className="inline-flex items-center gap-2 border border-violet-800/50 bg-violet-950/20 rounded-full px-3 py-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span className="text-xs text-zinc-400 font-mono">Vision Architect · Ready</span>
             </div>
 
-            <h1 className="text-4xl font-bold tracking-tight leading-tight">
+            <h1 className="text-5xl font-bold tracking-tight leading-[1.08] text-gradient-hero">
               Turn your idea into<br />a focused vision.
             </h1>
 
@@ -74,17 +79,17 @@ export default function Home() {
             <button
               onClick={start}
               disabled={loading}
-              className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+              className="inline-flex items-center gap-2.5 bg-violet-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
             >
               {loading ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-violet-300/50 border-t-white rounded-full animate-spin" />
                   Starting session...
                 </>
               ) : (
                 <>
                   Begin Session
-                  <span className="text-zinc-500">→</span>
+                  <span className="text-violet-300">→</span>
                 </>
               )}
             </button>
@@ -95,42 +100,45 @@ export default function Home() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-6 border-t border-zinc-800 pt-10">
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-                Output 1
-              </p>
-              <p className="text-sm font-semibold text-zinc-200">Vision Document</p>
-              <p className="text-xs text-zinc-600 leading-relaxed">
-                One page. Wedge sentence, customer, pain point, and why now.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-                Output 2
-              </p>
-              <p className="text-sm font-semibold text-zinc-200">Deferred Ideas</p>
-              <p className="text-xs text-zinc-600 leading-relaxed">
-                Every out-of-scope request, logged and saved — not discarded.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-                Gate 1 of 5
-              </p>
-              <p className="text-sm font-semibold text-zinc-200">Focus First</p>
-              <p className="text-xs text-zinc-600 leading-relaxed">
-                Business model, MVP scope, and launch planning follow in sequence.
-              </p>
-            </div>
+          <div className="grid grid-cols-3 gap-6 border-t border-zinc-800/60 pt-10">
+            {[
+              {
+                label: 'Output 1',
+                title: 'Vision Document',
+                desc: 'One page. Wedge sentence, customer, pain point, and why now.',
+              },
+              {
+                label: 'Output 2',
+                title: 'Deferred Ideas',
+                desc: 'Every out-of-scope request, logged and saved — not discarded.',
+              },
+              {
+                label: 'Gate 1 of 5',
+                title: 'Focus First',
+                desc: 'Business model, MVP scope, and launch planning follow in sequence.',
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="space-y-2 p-3 -mx-3 rounded-lg hover:bg-violet-950/20 hover:border hover:border-violet-800/30 transition-all group"
+              >
+                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
+                  {item.label}
+                </p>
+                <p className="text-sm font-semibold text-zinc-200 group-hover:text-violet-200 transition-colors">
+                  {item.title}
+                </p>
+                <p className="text-xs text-zinc-600 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
           </div>
 
           {/* Recent sessions */}
           {recentSessions.length > 0 && (
-            <div className="border-t border-zinc-800 pt-8 space-y-3">
+            <div className="border-t border-zinc-800/60 pt-8 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Recent sessions</p>
-                <Link href="/sessions" className="text-[10px] font-mono text-zinc-700 hover:text-zinc-500 transition-colors">
+                <Link href="/sessions" className="text-[10px] font-mono text-zinc-700 hover:text-violet-400 transition-colors">
                   View all →
                 </Link>
               </div>
@@ -139,9 +147,9 @@ export default function Home() {
                   <Link
                     key={s.id}
                     href={`/session/${s.id}`}
-                    className="flex items-center justify-between group border border-zinc-800/60 hover:border-zinc-700 rounded-lg px-3.5 py-2.5 transition-colors"
+                    className="flex items-center justify-between group border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/15 rounded-lg px-3.5 py-2.5 transition-all"
                   >
-                    <span className="text-xs font-mono text-zinc-500 group-hover:text-zinc-300 transition-colors">
+                    <span className="text-xs font-mono text-zinc-500 group-hover:text-violet-300 transition-colors">
                       {s.id.slice(0, 8)}
                     </span>
                     <span className="text-[10px] text-zinc-700">
@@ -167,7 +175,7 @@ export default function Home() {
       </section>
 
       {/* Story section */}
-      <section ref={storyRef} className="border-t border-zinc-800/60 px-6 py-24">
+      <section ref={storyRef} className="border-t border-zinc-800/50 px-6 py-24">
         <div className="max-w-3xl mx-auto space-y-24">
 
           {/* Without KORA */}
@@ -194,27 +202,21 @@ export default function Home() {
 
               {/* Entropy SVG */}
               <svg viewBox="0 0 560 210" className="w-full" xmlns="http://www.w3.org/2000/svg">
-                {/* Starting node */}
                 <circle cx="32" cy="105" r="5" fill="#a1a1aa" />
                 <text x="32" y="93" fill="#a1a1aa" fontSize="8.5" fontFamily="monospace" textAnchor="middle">Idea</text>
 
-                {/* Main trunk */}
                 <path d="M 37 105 L 135 105" stroke="#71717a" strokeWidth="2" fill="none" />
 
-                {/* First branch node */}
                 <circle cx="135" cy="105" r="3" fill="#52525b" />
 
-                {/* First branches */}
                 <path d="M 138 105 L 240 52" stroke="#52525b" strokeWidth="1.5" fill="none" />
                 <path d="M 138 105 L 240 105" stroke="#52525b" strokeWidth="1.5" fill="none" />
                 <path d="M 138 105 L 240 158" stroke="#52525b" strokeWidth="1.5" fill="none" />
 
-                {/* Branch labels */}
                 <text x="148" y="62" fill="#52525b" fontSize="8" fontFamily="monospace">&ldquo;What about mobile?&rdquo;</text>
                 <text x="148" y="100" fill="#52525b" fontSize="8" fontFamily="monospace">&ldquo;We need analytics&rdquo;</text>
                 <text x="148" y="168" fill="#52525b" fontSize="8" fontFamily="monospace">&ldquo;Maybe pivot to B2B&rdquo;</text>
 
-                {/* Second-level branches */}
                 <path d="M 240 52 L 355 25" stroke="#3f3f46" strokeWidth="1" fill="none" strokeDasharray="4,3" />
                 <path d="M 240 52 L 355 65" stroke="#3f3f46" strokeWidth="1" fill="none" strokeDasharray="4,3" />
                 <path d="M 240 105 L 355 88" stroke="#3f3f46" strokeWidth="1" fill="none" strokeDasharray="4,3" />
@@ -222,7 +224,6 @@ export default function Home() {
                 <path d="M 240 158 L 355 140" stroke="#3f3f46" strokeWidth="1" fill="none" strokeDasharray="4,3" />
                 <path d="M 240 158 L 355 175" stroke="#3f3f46" strokeWidth="1" fill="none" strokeDasharray="4,3" />
 
-                {/* Third-level branches (very faint) */}
                 <path d="M 355 25 L 455 14" stroke="#27272a" strokeWidth="0.8" fill="none" strokeDasharray="3,4" />
                 <path d="M 355 25 L 455 34" stroke="#27272a" strokeWidth="0.8" fill="none" strokeDasharray="3,4" />
                 <path d="M 355 65 L 455 54" stroke="#27272a" strokeWidth="0.8" fill="none" strokeDasharray="3,4" />
@@ -236,7 +237,6 @@ export default function Home() {
                 <path d="M 355 175 L 455 166" stroke="#27272a" strokeWidth="0.8" fill="none" strokeDasharray="3,4" />
                 <path d="M 355 175 L 455 182" stroke="#27272a" strokeWidth="0.8" fill="none" strokeDasharray="3,4" />
 
-                {/* Dead-end × markers */}
                 {[14, 34, 54, 74, 80, 95, 110, 125, 133, 148, 166, 182].map((y, i) => (
                   <g key={i}>
                     <line x1="451" y1={y - 3.5} x2="459" y2={y + 3.5} stroke="#27272a" strokeWidth="0.9" />
@@ -264,18 +264,18 @@ export default function Home() {
 
           {/* Divider */}
           <div className="flex items-center gap-5">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <div className="flex items-center gap-2 border border-zinc-800 rounded-full px-4 py-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[11px] font-mono text-zinc-400">KORA changes this</span>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-zinc-800" />
+            <div className="flex items-center gap-2 border border-violet-800/50 bg-violet-950/20 rounded-full px-4 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+              <span className="text-[11px] font-mono text-violet-300">KORA changes this</span>
             </div>
-            <div className="flex-1 h-px bg-zinc-800" />
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-zinc-800" />
           </div>
 
           {/* With KORA */}
           <div className="space-y-10">
             <div className="space-y-3">
-              <p className="text-[10px] font-mono text-emerald-600 uppercase tracking-widest">With KORA</p>
+              <p className="text-[10px] font-mono text-violet-500 uppercase tracking-widest">With KORA</p>
               <h2 className="text-2xl font-bold text-zinc-200 leading-snug">
                 Same idea. Eight questions.<br />
                 One page you can act on.
@@ -294,29 +294,26 @@ export default function Home() {
               </div>
 
               <svg viewBox="0 0 560 190" className="w-full" xmlns="http://www.w3.org/2000/svg">
-                {/* Input dots */}
                 {[28, 62, 95, 128, 162].map((y, i) => (
                   <circle key={i} cx="14" cy={y} r="3" fill="#52525b" />
                 ))}
 
-                {/* Input lines converging to KORA */}
                 <path d="M 17 28 L 225 95" stroke="#3f3f46" strokeWidth="1.2" fill="none" strokeDasharray="4,3" />
                 <path d="M 17 62 L 225 95" stroke="#3f3f46" strokeWidth="1.2" fill="none" strokeDasharray="4,3" />
                 <path d="M 17 95 L 225 95" stroke="#52525b" strokeWidth="1.5" fill="none" strokeDasharray="4,3" />
                 <path d="M 17 128 L 225 95" stroke="#3f3f46" strokeWidth="1.2" fill="none" strokeDasharray="4,3" />
                 <path d="M 17 162 L 225 95" stroke="#3f3f46" strokeWidth="1.2" fill="none" strokeDasharray="4,3" />
 
-                {/* Input labels */}
                 <text x="22" y="31" fill="#71717a" fontSize="8" fontFamily="monospace">Raw idea</text>
                 <text x="22" y="65" fill="#71717a" fontSize="8" fontFamily="monospace">Feature wish list</text>
                 <text x="22" y="98" fill="#71717a" fontSize="8" fontFamily="monospace">Scope questions</text>
                 <text x="22" y="131" fill="#71717a" fontSize="8" fontFamily="monospace">Customer hunches</text>
                 <text x="22" y="165" fill="#71717a" fontSize="8" fontFamily="monospace">Market intuitions</text>
 
-                {/* KORA box */}
-                <rect x="215" y="73" width="48" height="44" rx="5" fill="#052e16" stroke="#059669" strokeWidth="1.5" />
-                <text x="239" y="91" textAnchor="middle" fill="#34d399" fontSize="8.5" fontFamily="monospace" fontWeight="600">KORA</text>
-                <text x="239" y="106" textAnchor="middle" fill="#059669" fontSize="7.5" fontFamily="monospace">8 questions</text>
+                {/* KORA box — violet */}
+                <rect x="215" y="73" width="48" height="44" rx="5" fill="#1e1035" stroke="#7c3aed" strokeWidth="1.5" />
+                <text x="239" y="91" textAnchor="middle" fill="#a78bfa" fontSize="8.5" fontFamily="monospace" fontWeight="600">KORA</text>
+                <text x="239" y="106" textAnchor="middle" fill="#6d28d9" fontSize="7.5" fontFamily="monospace">8 questions</text>
 
                 {/* Vision doc output — bold, solid */}
                 <path d="M 263 88 L 505 55" stroke="#e4e4e7" strokeWidth="2.5" fill="none" />
@@ -331,7 +328,7 @@ export default function Home() {
 
               {/* Result cards */}
               <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="border border-zinc-800 rounded-lg p-4 space-y-2">
+                <div className="border border-violet-800/30 bg-violet-950/10 rounded-lg p-4 space-y-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-zinc-200 block" />
                   <p className="text-xs font-semibold text-zinc-200">Vision Document</p>
                   <p className="text-[11px] text-zinc-600 leading-relaxed">
@@ -351,7 +348,7 @@ export default function Home() {
 
           {/* Bottom CTA */}
           <div className="flex flex-col items-center gap-5 pt-4 pb-2">
-            <div className="h-px w-full bg-zinc-800" />
+            <div className="h-px w-full bg-zinc-800/60" />
             <p className="text-center text-sm text-zinc-500 max-w-sm">
               The session takes 60–90 minutes. You&apos;ll leave with a document you can act on today.
             </p>
@@ -359,17 +356,17 @@ export default function Home() {
               <button
                 onClick={start}
                 disabled={loading}
-                className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                className="inline-flex items-center gap-2.5 bg-violet-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
               >
                 {loading ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-violet-300/50 border-t-white rounded-full animate-spin" />
                     Starting session...
                   </>
                 ) : (
                   <>
                     Begin Session
-                    <span className="text-zinc-500">→</span>
+                    <span className="text-violet-300">→</span>
                   </>
                 )}
               </button>

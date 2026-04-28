@@ -77,10 +77,10 @@ export default function SessionsPage() {
 
   return (
     <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/60 px-8 py-4 flex items-center justify-between bg-zinc-950/95 backdrop-blur-sm">
+      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
         <Link
           href="/"
-          className="text-sm font-semibold tracking-widest text-zinc-300 uppercase hover:text-zinc-100 transition-colors"
+          className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
         >
           Kora
         </Link>
@@ -96,7 +96,7 @@ export default function SessionsPage() {
           <button
             onClick={startNew}
             disabled={starting}
-            className="shrink-0 inline-flex items-center gap-2 bg-white text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-zinc-100 transition-colors text-sm disabled:opacity-40"
+            className="shrink-0 inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
           >
             {starting ? 'Starting…' : 'New session →'}
           </button>
@@ -108,12 +108,12 @@ export default function SessionsPage() {
             <span className="text-sm">Loading…</span>
           </div>
         ) : sessions.length === 0 ? (
-          <div className="border border-zinc-800 rounded-xl p-10 text-center space-y-5">
+          <div className="border border-zinc-800/60 rounded-xl p-10 text-center space-y-5">
             <p className="text-sm text-zinc-500">No sessions in this browser yet.</p>
             <button
               onClick={startNew}
               disabled={starting}
-              className="inline-flex items-center gap-2 bg-white text-zinc-900 font-semibold px-5 py-2.5 rounded-lg hover:bg-zinc-100 transition-colors text-sm"
+              className="inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-violet-500 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none"
             >
               Begin your first session →
             </button>
@@ -123,7 +123,7 @@ export default function SessionsPage() {
             {sessions.map((session) => (
               <div
                 key={session.id}
-                className="border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors space-y-3"
+                className="border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/10 rounded-xl p-5 transition-all space-y-3 group"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1 min-w-0 flex-1">
@@ -137,7 +137,7 @@ export default function SessionsPage() {
                       )}
                     </div>
                     {session.idea ? (
-                      <p className="text-sm text-zinc-200 font-medium">{session.idea}</p>
+                      <p className="text-sm text-zinc-200 font-medium group-hover:text-white transition-colors">{session.idea}</p>
                     ) : (
                       <p className="text-sm text-zinc-600 italic">No title yet</p>
                     )}
@@ -155,13 +155,13 @@ export default function SessionsPage() {
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                   <Link
                     href={`/session/${session.id}`}
-                    className="text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+                    className="text-xs font-semibold text-violet-400 border border-violet-800/50 rounded-md px-3 py-1.5 hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20 transition-all"
                   >
                     Continue →
                   </Link>
                   <Link
                     href={`/session/${session.id}/view`}
-                    className="text-xs text-zinc-500 border border-zinc-800 rounded-md px-3 py-1.5 hover:border-zinc-700 hover:text-zinc-400 transition-colors"
+                    className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-1.5 hover:border-zinc-700 hover:text-zinc-400 transition-colors"
                   >
                     View results ↗
                   </Link>

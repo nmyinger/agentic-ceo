@@ -48,31 +48,31 @@ export function ShareView({
 
   return (
     <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/60 px-8 py-4 flex items-center justify-between bg-zinc-950/95 backdrop-blur-sm">
+      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
         <Link
           href="/"
-          className="text-sm font-semibold tracking-widest text-zinc-300 uppercase hover:text-zinc-100 transition-colors"
+          className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
         >
           Kora
         </Link>
         <div className="flex items-center gap-2">
           <button
             onClick={copyLink}
-            className="text-xs font-mono text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+            className="text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           {hasContent && (
             <button
               onClick={downloadAll}
-              className="text-xs font-mono text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+              className="text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
             >
               Export all
             </button>
           )}
           <Link
             href={`/session/${sessionId}`}
-            className="text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Open session →
           </Link>
@@ -93,11 +93,11 @@ export function ShareView({
         </div>
 
         {!hasContent ? (
-          <div className="border border-zinc-800 rounded-xl p-10 text-center space-y-3">
+          <div className="border border-zinc-800/60 rounded-xl p-10 text-center space-y-3">
             <p className="text-sm text-zinc-500">No artifacts yet.</p>
             <p className="text-xs text-zinc-600 leading-relaxed max-w-xs mx-auto">
               The vision document appears after ~6 exchanges with Kora.{' '}
-              <Link href={`/session/${sessionId}`} className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2">
+              <Link href={`/session/${sessionId}`} className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
                 Continue the session →
               </Link>
             </p>
@@ -106,12 +106,12 @@ export function ShareView({
           <>
             {/* Tabs */}
             {parkingLot && (
-              <div className="flex items-center gap-0 border-b border-zinc-800">
+              <div className="flex items-center gap-0 border-b border-zinc-800/60">
                 <button
                   onClick={() => setActiveTab('vision')}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === 'vision'
-                      ? 'text-zinc-100 border-zinc-400'
+                      ? 'text-violet-300 border-violet-500'
                       : 'text-zinc-500 border-transparent hover:text-zinc-300'
                   }`}
                 >
@@ -133,14 +133,14 @@ export function ShareView({
             {/* Content */}
             {activeTab === 'vision' ? (
               vision ? (
-                <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+                <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
                   {vision}
                 </pre>
               ) : (
                 <p className="text-sm text-zinc-600 py-4">Vision document not yet generated.</p>
               )
             ) : (
-              <pre className="text-sm font-mono text-zinc-400 whitespace-pre-wrap leading-relaxed bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+              <pre className="text-sm font-mono text-zinc-400 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
                 {parkingLot}
               </pre>
             )}
@@ -151,7 +151,7 @@ export function ShareView({
               {vision && (
                 <button
                   onClick={() => download('vision.md', vision)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                 >
                   vision.md
                 </button>
@@ -159,7 +159,7 @@ export function ShareView({
               {parkingLot && (
                 <button
                   onClick={() => download('parking_lot.md', parkingLot)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
                 >
                   parking_lot.md
                 </button>
@@ -177,13 +177,13 @@ export function ShareView({
         )}
 
         {/* CTA */}
-        <div className="border-t border-zinc-800/60 pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="border-t border-zinc-800/50 pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
             Built with Kora — turn your idea into a focused one-page vision in 90 minutes.
           </p>
           <Link
             href="/"
-            className="shrink-0 inline-flex items-center gap-2 bg-white text-zinc-900 font-semibold px-5 py-2.5 rounded-lg hover:bg-zinc-100 transition-colors text-sm"
+            className="shrink-0 inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm"
           >
             Start your session →
           </Link>
