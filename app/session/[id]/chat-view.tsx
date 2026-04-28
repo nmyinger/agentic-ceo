@@ -203,8 +203,6 @@ export function ChatView({
           if (row.type === 'parking_lot') setParkingLot(row.content)
           if (row.type === 'actions') {
             setActions(row.content)
-            // Auto-switch to actions tab on first update so founder sees it immediately
-            setActiveTab((prev) => (prev === 'actions' || !row.content ? prev : 'actions'))
           }
         }
       )
@@ -371,12 +369,10 @@ export function ChatView({
   function renderExportFooter(mobile = false) {
     const hasAny = vision || actions || parkingLot
     if (!hasAny) return null
-    const btnClass = mobile
-      ? 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
-      : 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
+    const btnClass = 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
 
     return (
-      <div className={`shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3 ${mobile ? '' : ''}`}>
+      <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] text-zinc-600 mr-1">Export</span>
           {actions && (

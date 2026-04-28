@@ -4,6 +4,13 @@ import { z } from 'zod'
 import { supabaseServer } from '@/lib/supabase'
 import { VISION_ARCHITECT_SYSTEM } from '@/lib/prompts'
 
+function getMessageText(msg: UIMessage): string {
+  return (msg.parts ?? [])
+    .filter((p) => p.type === 'text')
+    .map((p) => (p as { type: 'text'; text: string }).text)
+    .join('')
+}
+
 export async function POST(req: Request) {
   const { id: sessionId, messages }: { id: string; messages: UIMessage[] } = await req.json()
 
@@ -11,7 +18,7 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer()
 
-  // Fetch all current artifacts — agent needs to see every file it has written
+  // Fetch all current artifacts so the agent can see every file it has written
   const { data: artifacts } = await sb
     .from('artifacts')
     .select('type, content')
@@ -20,21 +27,27 @@ export async function POST(req: Request) {
   const visionArtifact = artifacts?.find((a) => a.type === 'vision')
   const parkingArtifact = artifacts?.find((a) => a.type === 'parking_lot')
   const actionsArtifact = artifacts?.find((a) => a.type === 'actions')
-  const messageCount = messages.filter((m) => m.role === 'user' || m.role === 'assistant').length
 
-  // Inject full session state into system prompt so the agent has complete context
-  const contextLines: string[] = ['\n---\n## Session context\n', `Messages so far: ${messageCount}`]
+  // Count only real messages (exclude internal trigger messages)
+  const realMessageCount = messages.filter((m) => {
+    if (m.role !== 'user' && m.role !== 'assistant') return false
+    if (m.role === 'assistant') return true
+    return !getMessageText(m).startsWith('<<')
+  }).length
+
+  // Build session context injected into the system prompt
+  const contextLines: string[] = ['\n---\n## Session context\n', `Real messages so far: ${realMessageCount}`]
 
   if (visionArtifact) {
-    contextLines.push(`Phase: 2 or 3 — vision draft exists.\n\nCurrent vision.md:\n${visionArtifact.content}`)
+    contextLines.push(`\nPhase: 2 or 3 — vision draft exists. Read it and identify the weakest section.\n\nCurrent vision.md:\n${visionArtifact.content}`)
   } else {
-    contextLines.push('Phase: 1 — no vision draft yet. Start with The User section.')
+    contextLines.push('\nPhase: 1 — no vision draft yet. Start with The User section.')
   }
 
   if (actionsArtifact) {
     contextLines.push(`\nCurrent actions.md:\n${actionsArtifact.content}`)
   } else {
-    contextLines.push('\nNo actions.md yet — emit_actions immediately after the first user message.')
+    contextLines.push('\nNo actions.md yet — emit_actions after the founder describes their idea.')
   }
 
   if (parkingArtifact) {
@@ -45,22 +58,16 @@ export async function POST(req: Request) {
 
   const modelMessages = await convertToModelMessages(messages)
 
-  // Smarter trigger: tell the agent whether it is starting fresh or resuming
+  // Add a <<begin>> trigger only if there are no messages at all
   let apiMessages = modelMessages
   if (modelMessages.length === 0 || modelMessages[0]?.role !== 'user') {
-    const trigger = visionArtifact
-      ? `<<resume>> Vision draft exists. Read session context, identify the weakest section, update actions.md if needed, and ask your next question.`
-      : `<<begin>>`
-    apiMessages = [{ role: 'user' as const, content: trigger }, ...modelMessages]
+    apiMessages = [{ role: 'user' as const, content: '<<begin>>' }, ...modelMessages]
   }
 
   // Persist the newest user message (skip internal trigger messages)
   const lastMsg = messages[messages.length - 1]
   if (lastMsg?.role === 'user') {
-    const text = lastMsg.parts
-      ?.filter((p) => p.type === 'text')
-      .map((p) => (p as { type: 'text'; text: string }).text)
-      .join('')
+    const text = getMessageText(lastMsg)
     if (text && !text.startsWith('<<')) {
       await Promise.all([
         sb.from('messages').insert({ session_id: sessionId, role: 'user', content: text }),
@@ -77,13 +84,13 @@ export async function POST(req: Request) {
     model: anthropic('claude-sonnet-4-6'),
     system: systemWithContext,
     messages: apiMessages,
-    stopWhen: stepCountIs(15),
+    stopWhen: stepCountIs(10),
     tools: {
       emit_actions: tool({
         description:
-          'Maintain the founder\'s action plan. Call immediately after the first user message with a starter checklist, then update after every meaningful answer — replacing generic placeholders with specific names, places, scripts, and numbers from the conversation. Every item must be executable tomorrow morning without asking anyone.',
+          'Maintain the founder\'s action plan. Call it: (1) after the founder first describes their idea — emit a starter checklist with concrete placeholders; (2) when a section reaches DONE — update that section\'s items with the specific names, places, scripts learned; (3) when calling mark_complete — mark exit checklist items done. Do NOT call this after every exchange.',
         inputSchema: z.object({
-          content: z.string().describe('Full markdown content of actions.md — always emit the complete file, not just changes'),
+          content: z.string().describe('Full markdown content of actions.md'),
         }),
         execute: async ({ content }) => {
           await sb.from('artifacts').upsert(
@@ -95,7 +102,7 @@ export async function POST(req: Request) {
       }),
       emit_vision: tool({
         description:
-          'Publish or update vision.md. Call after ~6 exchanges with a first draft — use [TBD] for missing sections. Update whenever a section meaningfully sharpens. Always emit after the Wedge section is filled.',
+          'Publish or update vision.md. Call after ~6 exchanges with a first draft — use [TBD] for missing sections. Update whenever a section meaningfully sharpens. Always emit after the Wedge is filled.',
         inputSchema: z.object({
           content: z.string().describe('Full markdown content of vision.md'),
         }),
