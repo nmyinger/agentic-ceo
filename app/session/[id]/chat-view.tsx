@@ -325,8 +325,9 @@ function VisionProgress({ content }: { content: string }) {
               </div>
 
               {/* Full draft content — always visible when available */}
+              {/* Feature 4: Wedge Sentence Spotlight — violet accent on the wedge, emerald on others */}
               {s.complete && s.content && (
-                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-emerald-900/50 [&_p]:text-xs [&_p]:text-zinc-300 [&_p]:leading-relaxed [&_p]:mb-1 [&_strong]:text-zinc-200">
+                <div className={`ml-[26px] mb-3 pl-3 border-l-2 [&_p]:text-xs [&_p]:text-zinc-300 [&_p]:leading-relaxed [&_p]:mb-1 [&_strong]:text-zinc-200 ${s.key === 'wedge' ? 'border-violet-600/60' : 'border-emerald-900/50'}`}>
                   <Prose>{s.content}</Prose>
                 </div>
               )}
