@@ -209,6 +209,33 @@ function VisionProgress({ content }: { content: string }) {
   const nextIdx = sections.findIndex((s) => !s.complete)
   const hasStarted = content.length > 0
 
+  // Feature 2: Vision Velocity Pulse — briefly animate newly-completed section dots
+  const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set())
+  const prevCompletedRef = useRef<Set<string>>(new Set())
+  const completedKeys = sections.filter((s) => s.complete).map((s) => s.key).join(',')
+
+  useEffect(() => {
+    const nowCompleted = new Set(sections.filter((s) => s.complete).map((s) => s.key))
+    const newlyCompleted = [...nowCompleted].filter((key) => !prevCompletedRef.current.has(key))
+    if (newlyCompleted.length > 0) {
+      setRecentlyCompleted((prev) => {
+        const next = new Set(prev)
+        newlyCompleted.forEach((key) => next.add(key))
+        return next
+      })
+      newlyCompleted.forEach((key) => {
+        setTimeout(() => {
+          setRecentlyCompleted((prev) => {
+            const next = new Set(prev)
+            next.delete(key)
+            return next
+          })
+        }, 8000)
+      })
+    }
+    prevCompletedRef.current = nowCompleted
+  }, [completedKeys]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="space-y-5">
       {/* Progress header */}
@@ -268,13 +295,18 @@ function VisionProgress({ content }: { content: string }) {
               {/* Section row */}
               <div className="flex items-center gap-2.5 py-2">
                 {/* Status dot */}
-                <div className="shrink-0 w-4 h-4 flex items-center justify-center">
+                <div className="shrink-0 w-4 h-4 flex items-center justify-center relative">
                   {s.complete ? (
-                    <span className="w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                        <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
+                    <>
+                      {recentlyCompleted.has(s.key) && (
+                        <span className="absolute inset-0 rounded-full bg-emerald-400/25 animate-ping" />
+                      )}
+                      <span className="relative z-10 w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
+                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                          <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </span>
+                    </>
                   ) : isNext ? (
                     <span className="w-4 h-4 rounded-full border-2 border-violet-500/70 bg-violet-950/40 animate-pulse" />
                   ) : (
