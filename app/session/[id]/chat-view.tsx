@@ -507,6 +507,7 @@ export function ChatView({
       payload: { text: '' },
     }).catch(() => {})
     sendMessage({ text })
+    textareaRef.current?.focus()
   }
 
   function renderMessage(msg: UIMessage) {
@@ -881,6 +882,7 @@ export function ChatView({
                         handleSubmit(e as unknown as React.FormEvent)
                       }
                     }}
+                    autoFocus
                     placeholder="Type your response..."
                     rows={1}
                     disabled={isLoading}
