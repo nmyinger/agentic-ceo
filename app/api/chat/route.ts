@@ -11,6 +11,29 @@ function getMessageText(msg: UIMessage): string {
     .join('')
 }
 
+// Replace full markdown payloads in historical emit_vision / emit_actions tool
+// calls with a stub. The current artifact is always injected fresh into the
+// system prompt from the DB, so every historical full-document input is
+// redundant — it compounds token cost on every subsequent request.
+function stripArtifactInputs(msgs: UIMessage[]): UIMessage[] {
+  return msgs.map((msg) => {
+    if (msg.role !== 'assistant') return msg
+    const hasBulky = msg.parts.some(
+      (p) => p.type === 'tool-emit_vision' || p.type === 'tool-emit_actions'
+    )
+    if (!hasBulky) return msg
+    return {
+      ...msg,
+      parts: msg.parts.map((p) => {
+        if (p.type === 'tool-emit_vision' || p.type === 'tool-emit_actions') {
+          return { ...p, input: { content: '[see current version in system context]' } }
+        }
+        return p
+      }),
+    }
+  })
+}
+
 export async function POST(req: Request) {
   const { id: sessionId, messages }: { id: string; messages: UIMessage[] } = await req.json()
 
@@ -35,7 +58,7 @@ export async function POST(req: Request) {
     return !getMessageText(m).startsWith('<<')
   }).length
 
-  // Build session context injected into the system prompt
+  // Build session context injected into the system prompt (dynamic — not cached)
   const contextLines: string[] = ['\n---\n## Session context\n', `Real messages so far: ${realMessageCount}`]
 
   if (visionArtifact) {
@@ -54,9 +77,7 @@ export async function POST(req: Request) {
     contextLines.push(`\nCurrent parking_lot.md:\n${parkingArtifact.content}`)
   }
 
-  const systemWithContext = VISION_ARCHITECT_SYSTEM + contextLines.join('\n')
-
-  const modelMessages = await convertToModelMessages(messages)
+  const modelMessages = await convertToModelMessages(stripArtifactInputs(messages))
 
   // Add a <<begin>> trigger only if there are no messages at all
   let apiMessages = modelMessages
@@ -88,7 +109,21 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: anthropic('claude-sonnet-4-6'),
-    system: systemWithContext,
+    // Split system into two blocks so the static instructions can be cached
+    // independently of the dynamic session context (artifacts, message count).
+    // Anthropic will cache everything up to and including the first block,
+    // saving ~1,500 tokens of re-processing on every back-and-forth exchange.
+    system: [
+      {
+        role: 'system' as const,
+        content: VISION_ARCHITECT_SYSTEM,
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      },
+      {
+        role: 'system' as const,
+        content: contextLines.join('\n'),
+      },
+    ],
     messages: apiMessages,
     stopWhen: stepCountIs(10),
     onChunk: ({ chunk }) => {
@@ -180,7 +215,6 @@ export async function POST(req: Request) {
       // Use accText (all steps) not the onFinish `text` param (final step only).
       // When a tool is called mid-response, onFinish.text omits the pre-tool text,
       // causing the Supabase realtime dedup check to fail and duplicate the reply.
-      // Generate a short title once, after the very first exchange
       const titleOp =
         realMessageCount === 1 && lastMsg?.role === 'user'
           ? (() => {
