@@ -163,10 +163,17 @@ export async function POST(req: Request) {
           content: z.string().describe('Full markdown content of vision.md'),
         }),
         execute: async ({ content }) => {
-          await sb.from('artifacts').upsert(
-            { session_id: sessionId, type: 'vision', content, updated_at: new Date().toISOString() },
-            { onConflict: 'session_id,type' }
-          )
+          const titleLine = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? ''
+          const isRealTitle = titleLine && !titleLine.startsWith('[')
+          await Promise.all([
+            sb.from('artifacts').upsert(
+              { session_id: sessionId, type: 'vision', content, updated_at: new Date().toISOString() },
+              { onConflict: 'session_id,type' }
+            ),
+            isRealTitle
+              ? sb.from('sessions').update({ idea: titleLine }).eq('id', sessionId)
+              : Promise.resolve(),
+          ])
           return { updated: true }
         },
       }),
