@@ -26,11 +26,14 @@ export async function POST(req: Request) {
       .map((p) => (p as { type: 'text'; text: string }).text)
       .join('')
     if (text && text !== '<<begin>>') {
-      await sb.from('messages').insert({
-        session_id: sessionId,
-        role: 'user',
-        content: text,
-      })
+      await Promise.all([
+        sb.from('messages').insert({ session_id: sessionId, role: 'user', content: text }),
+        sb
+          .from('sessions')
+          .update({ idea: text.slice(0, 150) })
+          .eq('id', sessionId)
+          .is('idea', null),
+      ])
     }
   }
 

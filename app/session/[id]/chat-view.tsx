@@ -6,6 +6,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { saveSession } from '@/lib/sessions'
 
 const TRIGGER = '<<begin>>'
 
@@ -60,6 +61,7 @@ export function ChatView({
   const [activeTab, setActiveTab] = useState<'vision' | 'parking'>('vision')
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
   const [newSessionLoading, setNewSessionLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const started = useRef(false)
 
@@ -87,6 +89,25 @@ export function ChatView({
     setActiveTab(tab)
     setShowMobileArtifacts(true)
   }
+
+  function copyUrl() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  function downloadAll() {
+    const parts = [
+      vision && `# Vision Document\n\n${vision}`,
+      parkingLot && `\n---\n\n${parkingLot}`,
+    ].filter(Boolean)
+    if (parts.length) download('kora-session.md', parts.join(''))
+  }
+
+  useEffect(() => {
+    saveSession(sessionId)
+  }, [sessionId])
 
   useEffect(() => {
     if (initialMessages.length === 0 && !started.current) {
@@ -192,6 +213,18 @@ export function ChatView({
             </button>
           )}
           <button
+            onClick={copyUrl}
+            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors font-mono"
+          >
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+          <Link
+            href={`/session/${sessionId}/view`}
+            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+          >
+            Share ↗
+          </Link>
+          <button
             onClick={startNewSession}
             disabled={newSessionLoading}
             className="text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -271,24 +304,48 @@ export function ChatView({
             )}
           </div>
           {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 flex items-center gap-2">
-              <span className="text-[11px] text-zinc-600 mr-1">Export</span>
-              {vision && (
+            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] text-zinc-600 mr-1">Export</span>
+                {vision && (
+                  <button
+                    onClick={() => download('vision.md', vision)}
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  >
+                    vision.md
+                  </button>
+                )}
+                {parkingLot && (
+                  <button
+                    onClick={() => download('parking_lot.md', parkingLot)}
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  >
+                    parking_lot.md
+                  </button>
+                )}
+                {vision && parkingLot && (
+                  <button
+                    onClick={downloadAll}
+                    className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
+                  >
+                    all.md
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => download('vision.md', vision)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  onClick={copyUrl}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors font-mono"
                 >
-                  vision.md
+                  {copied ? 'Copied!' : 'Copy link'}
                 </button>
-              )}
-              {parkingLot && (
-                <button
-                  onClick={() => download('parking_lot.md', parkingLot)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                <Link
+                  href={`/session/${sessionId}/view`}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
-                  parking_lot.md
-                </button>
-              )}
+                  Share view ↗
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -447,24 +504,41 @@ export function ChatView({
 
           {/* Downloads */}
           {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 flex items-center gap-2">
-              <span className="text-[11px] text-zinc-600 mr-1">Export</span>
-              {vision && (
-                <button
-                  onClick={() => download('vision.md', vision)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                >
-                  vision.md
-                </button>
-              )}
-              {parkingLot && (
-                <button
-                  onClick={() => download('parking_lot.md', parkingLot)}
-                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                >
-                  parking_lot.md
-                </button>
-              )}
+            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-zinc-600 mr-1">Export</span>
+                {vision && (
+                  <button
+                    onClick={() => download('vision.md', vision)}
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  >
+                    vision.md
+                  </button>
+                )}
+                {parkingLot && (
+                  <button
+                    onClick={() => download('parking_lot.md', parkingLot)}
+                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                  >
+                    parking_lot.md
+                  </button>
+                )}
+                {vision && parkingLot && (
+                  <button
+                    onClick={downloadAll}
+                    className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
+                  >
+                    all.md
+                  </button>
+                )}
+              </div>
+              <Link
+                href={`/session/${sessionId}/view`}
+                className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <span>Share read-only view</span>
+                <span>↗</span>
+              </Link>
             </div>
           )}
         </aside>

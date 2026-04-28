@@ -1,13 +1,20 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { saveSession, loadSessions, type StoredSession } from '@/lib/sessions'
 
 export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [recentSessions, setRecentSessions] = useState<StoredSession[]>([])
   const storyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setRecentSessions(loadSessions().slice(0, 3))
+  }, [])
 
   async function start() {
     setLoading(true)
@@ -16,6 +23,7 @@ export default function Home() {
       const res = await fetch('/api/session', { method: 'POST' })
       if (!res.ok) throw new Error('Failed to create session')
       const { id } = await res.json()
+      saveSession(id)
       router.push(`/session/${id}`)
     } catch {
       setError(true)
@@ -30,7 +38,17 @@ export default function Home() {
         <span className="text-sm font-semibold tracking-widest text-zinc-300 uppercase">
           Kora
         </span>
-        <span className="text-xs font-mono text-zinc-600">Gate 1 — Vision Architect</span>
+        <div className="flex items-center gap-4">
+          {recentSessions.length > 0 && (
+            <Link
+              href="/sessions"
+              className="text-xs font-mono text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              History ({recentSessions.length})
+            </Link>
+          )}
+          <span className="text-xs font-mono text-zinc-700">Gate 1 — Vision Architect</span>
+        </div>
       </nav>
 
       {/* Hero */}
@@ -106,6 +124,34 @@ export default function Home() {
               </p>
             </div>
           </div>
+
+          {/* Recent sessions */}
+          {recentSessions.length > 0 && (
+            <div className="border-t border-zinc-800 pt-8 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Recent sessions</p>
+                <Link href="/sessions" className="text-[10px] font-mono text-zinc-700 hover:text-zinc-500 transition-colors">
+                  View all →
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {recentSessions.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/session/${s.id}`}
+                    className="flex items-center justify-between group border border-zinc-800/60 hover:border-zinc-700 rounded-lg px-3.5 py-2.5 transition-colors"
+                  >
+                    <span className="text-xs font-mono text-zinc-500 group-hover:text-zinc-300 transition-colors">
+                      {s.id.slice(0, 8)}
+                    </span>
+                    <span className="text-[10px] text-zinc-700">
+                      {new Date(s.savedAt).toLocaleDateString()}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Scroll indicator */}
           <div className="flex justify-center pt-2">
