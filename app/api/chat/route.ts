@@ -176,7 +176,10 @@ export async function POST(req: Request) {
         },
       }),
     },
-    onFinish: async ({ text }) => {
+    onFinish: async () => {
+      // Use accText (all steps) not the onFinish `text` param (final step only).
+      // When a tool is called mid-response, onFinish.text omits the pre-tool text,
+      // causing the Supabase realtime dedup check to fail and duplicate the reply.
       // Generate a short title once, after the very first exchange
       const titleOp =
         realMessageCount === 1 && lastMsg?.role === 'user'
@@ -197,8 +200,8 @@ export async function POST(req: Request) {
 
       await Promise.all([
         sb.from('live_streams').delete().eq('session_id', sessionId),
-        text.trim()
-          ? sb.from('messages').insert({ session_id: sessionId, role: 'assistant', content: text })
+        accText.trim()
+          ? sb.from('messages').insert({ session_id: sessionId, role: 'assistant', content: accText })
           : Promise.resolve(),
         titleOp,
       ])
