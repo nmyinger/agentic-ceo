@@ -108,6 +108,159 @@ function ActionPlan({ content }: { content: string }) {
   )
 }
 
+// ─── Vision progress tracker ─────────────────────────────────────────────────
+
+const VISION_SECTIONS = [
+  { key: 'wedge',   heading: 'The Wedge',  label: 'Wedge Sentence' },
+  { key: 'user',    heading: 'The User',   label: 'Customer Persona' },
+  { key: 'pain',    heading: 'The Pain',   label: 'Core Pain' },
+  { key: 'change',  heading: 'The Change', label: 'The Change' },
+  { key: 'whynow',  heading: 'Why Now',    label: 'Why Now' },
+  { key: 'whyyou',  heading: 'Why You',    label: 'Why You' },
+]
+
+function parseVisionDocument(markdown: string) {
+  const titleMatch = markdown.match(/^#\s+(.+)$/m)
+  const title = titleMatch?.[1]?.trim() ?? ''
+
+  // Locate all ## headings by position
+  const headingRegex = /^##\s+(.+)$/gm
+  const headings: { heading: string; contentStart: number; start: number }[] = []
+  let m: RegExpExecArray | null
+  while ((m = headingRegex.exec(markdown)) !== null) {
+    headings.push({
+      heading: m[1].trim(),
+      start: m.index,
+      contentStart: m.index + m[0].length + 1,
+    })
+  }
+
+  const sectionMap: Record<string, string> = {}
+  for (let i = 0; i < headings.length; i++) {
+    const { heading, contentStart } = headings[i]
+    const end = headings[i + 1]?.start ?? markdown.length
+    sectionMap[heading] = markdown.slice(contentStart, end).trim()
+  }
+
+  const sections = VISION_SECTIONS.map((s) => {
+    const content = sectionMap[s.heading] ?? ''
+    const complete = content.length > 0 && !/^\[TBD\]$/i.test(content.trim())
+    return { ...s, content, complete }
+  })
+
+  return { title, sections }
+}
+
+function truncateAtWord(text: string, max: number): string {
+  if (text.length <= max) return text
+  const cut = text.slice(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > max * 0.75 ? cut.slice(0, lastSpace) : cut) + '…'
+}
+
+function VisionProgress({ content }: { content: string }) {
+  const { title, sections } = parseVisionDocument(content)
+  const completedCount = sections.filter((s) => s.complete).length
+  const nextIdx = sections.findIndex((s) => !s.complete)
+  const hasStarted = content.length > 0
+
+  return (
+    <div className="space-y-6">
+      {/* Progress header */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+            Vision Progress
+          </span>
+          <span className="text-[11px] font-mono text-zinc-500">
+            {completedCount} / {sections.length}
+          </span>
+        </div>
+
+        {/* Segmented bar */}
+        <div className="flex gap-1">
+          {sections.map((s, i) => (
+            <div
+              key={s.key}
+              className={[
+                'h-[3px] flex-1 rounded-full transition-all duration-500',
+                s.complete
+                  ? 'bg-emerald-500'
+                  : i === nextIdx && hasStarted
+                  ? 'bg-violet-500/50 animate-pulse'
+                  : 'bg-zinc-800',
+              ].join(' ')}
+            />
+          ))}
+        </div>
+
+        {/* Vision title appears once the document starts */}
+        {title && (
+          <p className="text-xs text-zinc-300 font-medium leading-snug pt-0.5">{title}</p>
+        )}
+
+        {!hasStarted && (
+          <p className="text-[11px] text-zinc-600 leading-relaxed">
+            Kora will fill each section in as you answer. Complete all six to pass Gate 1.
+          </p>
+        )}
+      </div>
+
+      {/* Section list */}
+      <div className="space-y-4">
+        {sections.map((s, i) => {
+          const isNext = i === nextIdx && hasStarted
+          const isFuture = !s.complete && i > nextIdx
+
+          return (
+            <div
+              key={s.key}
+              className={['flex items-start gap-3 transition-opacity duration-300', isFuture ? 'opacity-30' : ''].join(' ')}
+            >
+              {/* Status dot */}
+              <div className="shrink-0 mt-0.5 w-4 h-4 flex items-center justify-center">
+                {s.complete ? (
+                  <span className="w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
+                    <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                      <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </span>
+                ) : isNext ? (
+                  <span className="w-4 h-4 rounded-full border-2 border-violet-500/70 bg-violet-950/40 animate-pulse" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border border-zinc-700/60" />
+                )}
+              </div>
+
+              {/* Label + content */}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <p
+                  className={[
+                    'text-[11px] font-semibold uppercase tracking-wider leading-none',
+                    s.complete ? 'text-zinc-400' : isNext ? 'text-violet-300' : 'text-zinc-600',
+                  ].join(' ')}
+                >
+                  {s.label}
+                </p>
+
+                {s.complete && s.content && (
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    {truncateAtWord(s.content, 160)}
+                  </p>
+                )}
+
+                {isNext && !s.complete && (
+                  <p className="text-[11px] text-violet-800/80 italic">In progress…</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function ChatView({
   sessionId,
   initialMessages,
@@ -310,24 +463,7 @@ export function ChatView({
   // ─── Shared artifact content renderer ────────────────────────────────────
   function renderTabContent() {
     if (activeTab === 'vision') {
-      return vision ? (
-        <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{vision}</pre>
-      ) : (
-        <div className="space-y-4 py-1">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Vision Document</p>
-          <p className="text-xs text-zinc-600 leading-relaxed">
-            Not drafted yet. Kora will generate your vision document once there is enough signal from the conversation.
-          </p>
-          <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
-            {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map((item) => (
-              <div key={item} className="flex items-center gap-2.5">
-                <span className="w-3 h-px bg-zinc-800" />
-                <span className="text-[11px] text-zinc-700">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
+      return <VisionProgress content={vision} />
     }
 
     if (activeTab === 'actions') {
