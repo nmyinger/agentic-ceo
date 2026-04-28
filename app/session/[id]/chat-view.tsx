@@ -371,11 +371,13 @@ export function ChatView({
   const [copied, setCopied] = useState(false)
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
+  const [showIdleHint, setShowIdleHint] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { messages, setMessages, sendMessage, status } = useChat({
     id: sessionId,
@@ -513,6 +515,19 @@ export function ChatView({
     if (!isLoading) textareaRef.current?.focus()
   }, [isLoading])
 
+  // Feature 3: Silence Timer — show a calm nudge after 90s of inactivity
+  useEffect(() => {
+    if (isLoading || isCompleted) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      setShowIdleHint(false)
+      return
+    }
+    idleTimerRef.current = setTimeout(() => setShowIdleHint(true), 90_000)
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    }
+  }, [isLoading, isCompleted])
+
   // Feature 1: Live Tab Title
   useEffect(() => {
     const { title } = parseVisionDocument(vision)
@@ -538,6 +553,8 @@ export function ChatView({
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value
     setInput(text)
+    if (showIdleHint) setShowIdleHint(false)
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     typingChannelRef.current?.send({
       type: 'broadcast',
       event: 'typing',
@@ -550,6 +567,8 @@ export function ChatView({
     const text = input.trim()
     if (!text || isLoading) return
     setInput('')
+    setShowIdleHint(false)
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     // Clear peer typing display immediately on send
     typingChannelRef.current?.send({
       type: 'broadcast',
@@ -943,6 +962,9 @@ export function ChatView({
                   </button>
                 </form>
                 <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">Shift+Enter for a new line</p>
+                {showIdleHint && (
+                  <p className="text-[11px] text-zinc-700 mt-0.5 ml-0.5">Still here. Take your time.</p>
+                )}
               </>
             )}
           </div>
