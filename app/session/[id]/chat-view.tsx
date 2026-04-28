@@ -151,13 +151,6 @@ function parseVisionDocument(markdown: string) {
   return { title, sections }
 }
 
-function truncateAtWord(text: string, max: number): string {
-  if (text.length <= max) return text
-  const cut = text.slice(0, max)
-  const lastSpace = cut.lastIndexOf(' ')
-  return (lastSpace > max * 0.75 ? cut.slice(0, lastSpace) : cut) + '…'
-}
-
 function VisionProgress({ content }: { content: string }) {
   const { title, sections } = parseVisionDocument(content)
   const completedCount = sections.filter((s) => s.complete).length
@@ -165,7 +158,7 @@ function VisionProgress({ content }: { content: string }) {
   const hasStarted = content.length > 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Progress header */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -183,7 +176,7 @@ function VisionProgress({ content }: { content: string }) {
             <div
               key={s.key}
               className={[
-                'h-[3px] flex-1 rounded-full transition-all duration-500',
+                'h-[3px] flex-1 rounded-full transition-all duration-700',
                 s.complete
                   ? 'bg-emerald-500'
                   : i === nextIdx && hasStarted
@@ -193,66 +186,75 @@ function VisionProgress({ content }: { content: string }) {
             />
           ))}
         </div>
-
-        {/* Vision title appears once the document starts */}
-        {title && (
-          <p className="text-xs text-zinc-300 font-medium leading-snug pt-0.5">{title}</p>
-        )}
-
-        {!hasStarted && (
-          <p className="text-[11px] text-zinc-600 leading-relaxed">
-            Kora will fill each section in as you answer. Complete all six to pass Gate 1.
-          </p>
-        )}
       </div>
 
-      {/* Section list */}
-      <div className="space-y-4">
+      {/* Title + draft sections */}
+      <div className="space-y-1">
+        {/* Document title */}
+        {title ? (
+          <p className="text-sm font-semibold text-zinc-200 leading-snug pb-3">{title}</p>
+        ) : hasStarted ? (
+          <p className="text-xs text-zinc-700 italic pb-3">Working title pending…</p>
+        ) : (
+          <p className="text-[11px] text-zinc-600 leading-relaxed pb-3">
+            Kora will fill each section as you answer. Complete all six to pass Gate 1.
+          </p>
+        )}
+
         {sections.map((s, i) => {
           const isNext = i === nextIdx && hasStarted
-          const isFuture = !s.complete && i > nextIdx
+          const isFuture = !s.complete && !isNext
 
           return (
             <div
               key={s.key}
-              className={['flex items-start gap-3 transition-opacity duration-300', isFuture ? 'opacity-30' : ''].join(' ')}
+              className={[
+                'group transition-opacity duration-300',
+                isFuture ? 'opacity-30' : '',
+              ].join(' ')}
             >
-              {/* Status dot */}
-              <div className="shrink-0 mt-0.5 w-4 h-4 flex items-center justify-center">
-                {s.complete ? (
-                  <span className="w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
-                    <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                      <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </span>
-                ) : isNext ? (
-                  <span className="w-4 h-4 rounded-full border-2 border-violet-500/70 bg-violet-950/40 animate-pulse" />
-                ) : (
-                  <span className="w-4 h-4 rounded-full border border-zinc-700/60" />
-                )}
-              </div>
+              {/* Section row */}
+              <div className="flex items-center gap-2.5 py-2">
+                {/* Status dot */}
+                <div className="shrink-0 w-4 h-4 flex items-center justify-center">
+                  {s.complete ? (
+                    <span className="w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                        <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                  ) : isNext ? (
+                    <span className="w-4 h-4 rounded-full border-2 border-violet-500/70 bg-violet-950/40 animate-pulse" />
+                  ) : (
+                    <span className="w-4 h-4 rounded-full border border-zinc-700/60" />
+                  )}
+                </div>
 
-              {/* Label + content */}
-              <div className="flex-1 min-w-0 space-y-1.5">
                 <p
                   className={[
-                    'text-[11px] font-semibold uppercase tracking-wider leading-none',
+                    'text-[11px] font-semibold uppercase tracking-wider',
                     s.complete ? 'text-zinc-400' : isNext ? 'text-violet-300' : 'text-zinc-600',
                   ].join(' ')}
                 >
                   {s.label}
                 </p>
-
-                {s.complete && s.content && (
-                  <p className="text-xs text-zinc-500 leading-relaxed">
-                    {truncateAtWord(s.content, 160)}
-                  </p>
-                )}
-
-                {isNext && !s.complete && (
-                  <p className="text-[11px] text-violet-800/80 italic">In progress…</p>
-                )}
               </div>
+
+              {/* Full draft content — always visible when available */}
+              {s.complete && s.content && (
+                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-emerald-900/50">
+                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                    {s.content}
+                  </p>
+                </div>
+              )}
+
+              {/* Active section placeholder */}
+              {isNext && (
+                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-violet-900/40">
+                  <p className="text-[11px] text-violet-800 italic">In progress…</p>
+                </div>
+              )}
             </div>
           )
         })}

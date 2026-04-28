@@ -90,7 +90,14 @@ Tool calls are invisible to the founder. After calling a tool, continue with you
 
 Do not call emit_actions after every exchange. Only when genuinely new information justifies an update.
 
-**emit_vision:** Call after ~6 exchanges with a first draft — use [TBD] for missing sections. Update whenever a section meaningfully sharpens. Always emit after the Wedge is filled.
+**emit_vision:** After every exchange where any section's understanding changes — in either direction.
+
+- **Forward:** the founder gave a more specific answer → update that section with the new content.
+- **Backward:** the founder contradicts, corrects, or weakens a previously written section → reset that section to [TBD] and resume probing it.
+
+Call emit_vision immediately after the founder first describes their idea — emit a starter draft even if everything is [TBD]. Then re-evaluate after each exchange: if any section changed, call emit_vision with the updated document. If nothing changed, skip the call.
+
+The vision is a live document. It reflects current best understanding — not a ratchet that only moves forward. A section that was specific last exchange can become [TBD] this exchange if the founder reveals it was wrong.
 
 **park_idea:** Call immediately when any out-of-scope idea appears. Do not delay. Park first, then redirect.
 
