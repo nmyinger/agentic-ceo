@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { saveSession, loadSessions, type StoredSession } from '@/lib/sessions'
 
-type Stats = { ideasKilled: number; completedSessions: number; killRate: number | null }
+type Stats = { ideasKilled: number; completedSessions: number; killRate: number | null; visionsFormed: number }
 type RecentSession = StoredSession & { title?: string }
 
 export default function Home() {
@@ -15,6 +15,7 @@ export default function Home() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [displayCount, setDisplayCount] = useState(0)
+  const [displayVisions, setDisplayVisions] = useState(0)
   const [barWidth, setBarWidth] = useState(0)
   const storyRef = useRef<HTMLDivElement>(null)
 
@@ -51,6 +52,20 @@ export default function Home() {
     const id = setInterval(() => {
       current = Math.min(current + step, target)
       setDisplayCount(current)
+      if (current >= target) clearInterval(id)
+    }, 30)
+    return () => clearInterval(id)
+  }, [stats])
+
+  useEffect(() => {
+    if (!stats) return
+    const target = stats.visionsFormed
+    if (target === 0) return
+    const step = Math.max(1, Math.floor(target / 40))
+    let current = 0
+    const id = setInterval(() => {
+      current = Math.min(current + step, target)
+      setDisplayVisions(current)
       if (current >= target) clearInterval(id)
     }, 30)
     return () => clearInterval(id)
@@ -148,7 +163,7 @@ export default function Home() {
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-2 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
+          <div className="grid grid-cols-3 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
             {/* A: Kill counter */}
             <div className="bg-zinc-950 px-6 py-5 space-y-2">
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Ideas killed</p>
@@ -161,6 +176,21 @@ export default function Home() {
               </p>
               <p className="text-sm text-zinc-500 leading-snug">
                 distractions buried before they could ship
+              </p>
+            </div>
+
+            {/* B: Visions formed */}
+            <div className="bg-zinc-950 px-6 py-5 space-y-2">
+              <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Visions formed</p>
+              <p className="text-4xl font-bold tabular-nums tracking-tight text-emerald-400">
+                {stats
+                  ? stats.visionsFormed === 0
+                    ? '0'
+                    : displayVisions.toLocaleString()
+                  : '—'}
+              </p>
+              <p className="text-sm text-zinc-500 leading-snug">
+                full vision documents completed
               </p>
             </div>
 
