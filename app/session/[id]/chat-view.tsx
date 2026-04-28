@@ -435,6 +435,8 @@ export function ChatView({
   const isCompleted =
     initialStatus === 'completed' ||
     messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
+  // Feature 7: Wedge Recitation Hint — changes placeholder when all 6 sections are complete
+  const allSectionsComplete = vision.length > 0 && parseVisionDocument(vision).sections.every((s) => s.complete)
 
   useEffect(() => {
     saveSession(sessionId)
@@ -984,7 +986,7 @@ export function ChatView({
                       }
                     }}
                     autoFocus
-                    placeholder="Type your response..."
+                    placeholder={allSectionsComplete ? 'State your wedge sentence without reading it.' : 'Type your response...'}
                     rows={1}
                     disabled={isLoading}
                     className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all min-h-[48px] max-h-40 overflow-y-auto"
