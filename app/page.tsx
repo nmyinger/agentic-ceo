@@ -6,13 +6,21 @@ import { useState, useRef } from 'react'
 export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
   const storyRef = useRef<HTMLDivElement>(null)
 
   async function start() {
     setLoading(true)
-    const res = await fetch('/api/session', { method: 'POST' })
-    const { id } = await res.json()
-    router.push(`/session/${id}`)
+    setError(false)
+    try {
+      const res = await fetch('/api/session', { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to create session')
+      const { id } = await res.json()
+      router.push(`/session/${id}`)
+    } catch {
+      setError(true)
+      setLoading(false)
+    }
   }
 
   return (
@@ -44,23 +52,30 @@ export default function Home() {
             </p>
           </div>
 
-          <button
-            onClick={start}
-            disabled={loading}
-            className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
-          >
-            {loading ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
-                Starting session...
-              </>
-            ) : (
-              <>
-                Begin Session
-                <span className="text-zinc-500">→</span>
-              </>
+          <div className="space-y-3">
+            <button
+              onClick={start}
+              disabled={loading}
+              className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+            >
+              {loading ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+                  Starting session...
+                </>
+              ) : (
+                <>
+                  Begin Session
+                  <span className="text-zinc-500">→</span>
+                </>
+              )}
+            </button>
+            {error && (
+              <p className="text-xs text-red-400 font-mono">
+                Couldn&apos;t start session — please try again.
+              </p>
             )}
-          </button>
+          </div>
 
           <div className="grid grid-cols-3 gap-6 border-t border-zinc-800 pt-10">
             <div className="space-y-2">
@@ -294,23 +309,30 @@ export default function Home() {
             <p className="text-center text-sm text-zinc-500 max-w-sm">
               The session takes 60–90 minutes. You&apos;ll leave with a document you can act on today.
             </p>
-            <button
-              onClick={start}
-              disabled={loading}
-              className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
-            >
-              {loading ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
-                  Starting session...
-                </>
-              ) : (
-                <>
-                  Begin Session
-                  <span className="text-zinc-500">→</span>
-                </>
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={start}
+                disabled={loading}
+                className="inline-flex items-center gap-2.5 bg-white text-zinc-900 font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+              >
+                {loading ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+                    Starting session...
+                  </>
+                ) : (
+                  <>
+                    Begin Session
+                    <span className="text-zinc-500">→</span>
+                  </>
+                )}
+              </button>
+              {error && (
+                <p className="text-xs text-red-400 font-mono">
+                  Couldn&apos;t start session — please try again.
+                </p>
               )}
-            </button>
+            </div>
           </div>
 
         </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
@@ -51,10 +53,13 @@ export function ChatView({
   initialVision: string
   initialParkingLot: string
 }) {
+  const router = useRouter()
   const [input, setInput] = useState('')
   const [vision, setVision] = useState(initialVision)
   const [parkingLot, setParkingLot] = useState(initialParkingLot)
   const [activeTab, setActiveTab] = useState<'vision' | 'parking'>('vision')
+  const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
+  const [newSessionLoading, setNewSessionLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const started = useRef(false)
 
@@ -65,6 +70,23 @@ export function ChatView({
   })
 
   const isLoading = status === 'streaming' || status === 'submitted'
+  const hasError = status === 'error'
+
+  async function startNewSession() {
+    setNewSessionLoading(true)
+    try {
+      const res = await fetch('/api/session', { method: 'POST' })
+      const { id } = await res.json()
+      router.push(`/session/${id}`)
+    } catch {
+      setNewSessionLoading(false)
+    }
+  }
+
+  function openMobileArtifacts(tab: 'vision' | 'parking') {
+    setActiveTab(tab)
+    setShowMobileArtifacts(true)
+  }
 
   useEffect(() => {
     if (initialMessages.length === 0 && !started.current) {
@@ -144,24 +166,133 @@ export function ChatView({
       {/* Header */}
       <header className="shrink-0 border-b border-zinc-800 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold tracking-widest text-zinc-300 uppercase">
+          <Link
+            href="/"
+            className="text-sm font-semibold tracking-widest text-zinc-300 uppercase hover:text-zinc-100 transition-colors"
+          >
             Kora
-          </span>
+          </Link>
           <span className="text-zinc-800">|</span>
-          <span className="text-xs font-mono text-zinc-500">Gate 1 — Vision Architect</span>
+          <span className="text-xs font-mono text-zinc-500 hidden sm:block">Gate 1 — Vision Architect</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Mobile: open artifacts overlay */}
+          <button
+            onClick={() => openMobileArtifacts('vision')}
+            className="lg:hidden text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors"
+          >
+            Artifacts
+          </button>
           {parkedCount > 0 && (
             <button
-              onClick={() => setActiveTab('parking')}
+              onClick={() => openMobileArtifacts('parking')}
               className="flex items-center gap-1.5 text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-2.5 py-1 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
             >
               {parkedCount} deferred
             </button>
           )}
-          <span className="text-xs font-mono text-zinc-700">{sessionId.slice(0, 8)}</span>
+          <button
+            onClick={startNewSession}
+            disabled={newSessionLoading}
+            className="text-xs text-zinc-500 border border-zinc-800 rounded-md px-2.5 py-1 hover:border-zinc-700 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {newSessionLoading ? 'Starting…' : 'New session'}
+          </button>
+          <span className="text-xs font-mono text-zinc-700 hidden sm:block">{sessionId.slice(0, 8)}</span>
         </div>
       </header>
+
+      {/* Error banner */}
+      {hasError && (
+        <div className="shrink-0 flex items-center gap-3 bg-red-950/60 border-b border-red-800/40 px-6 py-2.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+          <span className="text-xs text-red-300">Something went wrong. Please try sending your message again.</span>
+        </div>
+      )}
+
+      {/* Mobile artifacts overlay */}
+      {showMobileArtifacts && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
+          <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setActiveTab('vision')}
+                className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
+                  activeTab === 'vision' ? 'text-zinc-100' : 'text-zinc-500'
+                }`}
+              >
+                Vision Draft
+              </button>
+              <button
+                onClick={() => setActiveTab('parking')}
+                className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
+                  activeTab === 'parking' ? 'text-amber-400' : 'text-zinc-500'
+                }`}
+              >
+                Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowMobileArtifacts(false)}
+              className="text-zinc-500 hover:text-zinc-300 transition-colors text-sm px-2 py-1"
+            >
+              ✕ Close
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5">
+            {activeTab === 'vision' ? (
+              vision ? (
+                <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{vision}</pre>
+              ) : (
+                <div className="space-y-4 py-1">
+                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Vision Document</p>
+                  <p className="text-xs text-zinc-600 leading-relaxed">
+                    Not drafted yet. Kora will generate your vision document once there is enough signal from the conversation.
+                  </p>
+                  <div className="border border-dashed border-zinc-800 rounded-lg p-4 space-y-2">
+                    {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map((item) => (
+                      <div key={item} className="flex items-center gap-2.5">
+                        <span className="w-3 h-px bg-zinc-800" />
+                        <span className="text-[11px] text-zinc-700">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ) : parkingLot ? (
+              <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{parkingLot}</pre>
+            ) : (
+              <div className="space-y-4 py-1">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deferred Ideas</p>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Out-of-scope ideas are saved here — not discarded, just deferred until the right gate.
+                </p>
+              </div>
+            )}
+          </div>
+          {(vision || parkingLot) && (
+            <div className="shrink-0 border-t border-zinc-800 px-5 py-4 flex items-center gap-2">
+              <span className="text-[11px] text-zinc-600 mr-1">Export</span>
+              {vision && (
+                <button
+                  onClick={() => download('vision.md', vision)}
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                >
+                  vision.md
+                </button>
+              )}
+              {parkingLot && (
+                <button
+                  onClick={() => download('parking_lot.md', parkingLot)}
+                  className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
+                >
+                  parking_lot.md
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex flex-1 min-h-0">
