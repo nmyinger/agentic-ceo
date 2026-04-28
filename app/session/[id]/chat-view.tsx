@@ -6,7 +6,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
-import { saveSession } from '@/lib/sessions'
+import { saveSession, loadSessions } from '@/lib/sessions'
 import { Prose } from '@/components/prose'
 
 const TRIGGER = '<<begin>>'
@@ -373,6 +373,12 @@ export function ChatView({
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
   const [showIdleHint, setShowIdleHint] = useState(false)
+  // Feature 5: Return Visitor Greeting — shown briefly when returning to an existing session
+  const isReturn = typeof window !== 'undefined'
+    && loadSessions().some((s) => s.id === sessionId)
+    && initialMessages.length > 0
+    && initialVision !== ''
+  const [showReturnGreet, setShowReturnGreet] = useState(isReturn)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
@@ -515,6 +521,13 @@ export function ChatView({
   useEffect(() => {
     if (!isLoading) textareaRef.current?.focus()
   }, [isLoading])
+
+  // Feature 5: auto-dismiss return greeting
+  useEffect(() => {
+    if (!isReturn) return
+    const t = setTimeout(() => setShowReturnGreet(false), 2000)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Feature 3: Silence Timer — show a calm nudge after 90s of inactivity
   useEffect(() => {
@@ -851,6 +864,14 @@ export function ChatView({
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
+            {/* Feature 5: Return Visitor Greeting */}
+            {showReturnGreet && (
+              <p className="text-xs font-mono text-zinc-600">
+                Resuming — {initialMessages.filter((m) => m.role === 'user').length} exchanges,{' '}
+                {parseVisionDocument(initialVision).sections.filter((s) => s.complete).length} sections complete.
+              </p>
+            )}
+
             {visibleMessages.length === 0 && (
               <div className="flex items-center gap-2 text-zinc-600 text-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 animate-pulse" />
