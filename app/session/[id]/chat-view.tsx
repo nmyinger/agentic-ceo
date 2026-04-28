@@ -7,6 +7,7 @@ import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
 import { saveSession } from '@/lib/sessions'
+import { Prose } from '@/components/prose'
 
 const TRIGGER = '<<begin>>'
 
@@ -293,10 +294,8 @@ function VisionProgress({ content }: { content: string }) {
 
               {/* Full draft content — always visible when available */}
               {s.complete && s.content && (
-                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-emerald-900/50">
-                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                    {s.content}
-                  </p>
+                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-emerald-900/50 [&_p]:text-xs [&_p]:text-zinc-300 [&_p]:leading-relaxed [&_p]:mb-1 [&_strong]:text-zinc-200">
+                  <Prose>{s.content}</Prose>
                 </div>
               )}
 
@@ -518,11 +517,7 @@ export function ChatView({
     return msg.parts.map((part, i) => {
       if (part.type === 'text') {
         const text = (part as TextUIPart).text
-        return text ? (
-          <p key={i} className="text-sm leading-relaxed whitespace-pre-wrap">
-            {text}
-          </p>
-        ) : null
+        return text ? <div key={i}><Prose>{text}</Prose></div> : null
       }
       if (part.type === 'tool-emit_actions') {
         return (
@@ -825,7 +820,7 @@ export function ChatView({
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{liveStreamContent}</p>
+                  <Prose>{liveStreamContent}</Prose>
                   <div className="flex items-center gap-1 pt-0.5">
                     <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
                     <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />

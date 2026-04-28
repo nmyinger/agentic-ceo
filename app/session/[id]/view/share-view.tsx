@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { Prose } from '@/components/prose'
 
 function download(filename: string, content: string) {
   const blob = new Blob([content], { type: 'text/markdown' })
@@ -133,16 +134,16 @@ export function ShareView({
             {/* Content */}
             {activeTab === 'vision' ? (
               vision ? (
-                <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
-                  {vision}
-                </pre>
+                <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
+                  <Prose variant="doc">{vision}</Prose>
+                </div>
               ) : (
                 <p className="text-sm text-zinc-600 py-4">Vision document not yet generated.</p>
               )
             ) : (
-              <pre className="text-sm font-mono text-zinc-400 whitespace-pre-wrap leading-relaxed bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
-                {parkingLot}
-              </pre>
+              <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-6">
+                <Prose variant="doc">{parkingLot}</Prose>
+              </div>
             )}
 
             {/* Individual downloads */}
