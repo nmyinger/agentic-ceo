@@ -96,7 +96,7 @@ export default function Home() {
   return (
     <main className="bg-zinc-950 text-zinc-100">
       {/* Nav */}
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
+      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
         <span className="text-sm font-semibold tracking-widest text-zinc-200 uppercase">
           Kora
         </span>
@@ -109,25 +109,25 @@ export default function Home() {
               History ({recentSessions.length})
             </Link>
           )}
-          <span className="text-xs font-mono text-zinc-700">Gate 1 — Vision Architect</span>
+          <span className="hidden sm:block text-xs font-mono text-zinc-700">Gate 1 — Vision Architect</span>
         </div>
       </nav>
 
       {/* Hero */}
       <section
-        className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-6 py-24"
+        className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-4 sm:px-6 py-16 sm:py-24"
         style={{
           background: 'radial-gradient(ellipse 80% 55% at 50% -5%, rgba(139,92,246,0.13) 0%, transparent 65%)',
         }}
       >
-        <div className="max-w-xl w-full space-y-12">
-          <div className="space-y-6">
+        <div className="max-w-xl w-full space-y-10 sm:space-y-12">
+          <div className="space-y-5 sm:space-y-6">
             <div className="inline-flex items-center gap-2 border border-violet-800/50 bg-violet-950/20 rounded-full px-3 py-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span className="text-xs text-zinc-400 font-mono">Vision Architect · Ready</span>
             </div>
 
-            <h1 className="text-5xl font-bold tracking-tight leading-[1.08] text-gradient-hero">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.08] text-gradient-hero">
               Turn your idea into<br />a focused vision.
             </h1>
 
@@ -163,11 +163,11 @@ export default function Home() {
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-3 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-800/60">
             {/* A: Kill counter */}
-            <div className="bg-zinc-950 px-6 py-5 space-y-2">
+            <div className="bg-zinc-950 px-5 py-4 sm:px-6 sm:py-5 space-y-1.5 sm:space-y-2">
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Ideas killed</p>
-              <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
+              <p className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
                 {stats
                   ? stats.ideasKilled === 0
                     ? '0'
@@ -180,9 +180,9 @@ export default function Home() {
             </div>
 
             {/* B: Visions formed */}
-            <div className="bg-zinc-950 px-6 py-5 space-y-2">
+            <div className="bg-zinc-950 px-5 py-4 sm:px-6 sm:py-5 space-y-1.5 sm:space-y-2">
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Visions formed</p>
-              <p className="text-4xl font-bold tabular-nums tracking-tight text-emerald-400">
+              <p className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-emerald-400">
                 {stats
                   ? stats.visionsFormed === 0
                     ? '0'
@@ -195,10 +195,10 @@ export default function Home() {
             </div>
 
             {/* C: Signal-to-noise bar */}
-            <div className="bg-zinc-950 px-6 py-5 space-y-3">
+            <div className="bg-zinc-950 px-5 py-4 sm:px-6 sm:py-5 space-y-2 sm:space-y-3">
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Filter rate</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
+                <p className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-zinc-100">
                   {stats
                     ? stats.killRate != null
                       ? `${stats.killRate}%`
@@ -219,7 +219,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 border-t border-zinc-800/60 pt-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 border-t border-zinc-800/60 pt-8 sm:pt-10">
             {[
               {
                 label: 'Output 1',
@@ -294,14 +294,14 @@ export default function Home() {
       </section>
 
       {/* Story section */}
-      <section ref={storyRef} className="border-t border-zinc-800/50 px-6 py-24">
-        <div className="max-w-3xl mx-auto space-y-24">
+      <section ref={storyRef} className="border-t border-zinc-800/50 px-4 sm:px-6 py-16 sm:py-24">
+        <div className="max-w-3xl mx-auto space-y-16 sm:space-y-24">
 
           {/* Without KORA */}
-          <div className="space-y-10">
+          <div className="space-y-8 sm:space-y-10">
             <div className="space-y-3">
               <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">The usual story</p>
-              <h2 className="text-2xl font-bold text-zinc-200 leading-snug">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-200 leading-snug">
                 Ideas don&apos;t die from bad execution.<br />
                 They die from entropy.
               </h2>
@@ -365,7 +365,7 @@ export default function Home() {
               </svg>
 
               {/* Stage callouts */}
-              <div className="grid grid-cols-4 gap-4 mt-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
                 {[
                   { label: 'The spark', desc: 'One clear insight', dim: false },
                   { label: 'Scope creep', desc: '"But what if we also…"', dim: true },
@@ -392,10 +392,10 @@ export default function Home() {
           </div>
 
           {/* With KORA */}
-          <div className="space-y-10">
+          <div className="space-y-8 sm:space-y-10">
             <div className="space-y-3">
               <p className="text-[10px] font-mono text-violet-500 uppercase tracking-widest">With KORA</p>
-              <h2 className="text-2xl font-bold text-zinc-200 leading-snug">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-200 leading-snug">
                 Same idea. Eight questions.<br />
                 One page you can act on.
               </h2>
@@ -446,7 +446,7 @@ export default function Home() {
               </svg>
 
               {/* Result cards */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <div className="border border-violet-800/30 bg-violet-950/10 rounded-lg p-4 space-y-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-zinc-200 block" />
                   <p className="text-xs font-semibold text-zinc-200">Vision Document</p>
