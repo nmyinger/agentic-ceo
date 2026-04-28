@@ -373,6 +373,7 @@ export function ChatView({
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
   const [showIdleHint, setShowIdleHint] = useState(false)
+  const [parkingBadgePulse, setParkingBadgePulse] = useState(false)
   // Feature 5: Return Visitor Greeting — shown briefly when returning to an existing session
   const isReturn = typeof window !== 'undefined'
     && loadSessions().some((s) => s.id === sessionId)
@@ -549,6 +550,18 @@ export function ChatView({
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     }
   }, [isLoading, isCompleted])
+
+  // Feature 6: Deferred Badge Pulse — flash amber when parkedCount increases
+  const prevParkedRef = useRef(parkedCount)
+  useEffect(() => {
+    if (parkedCount > prevParkedRef.current) {
+      setParkingBadgePulse(true)
+      const t = setTimeout(() => setParkingBadgePulse(false), 2000)
+      prevParkedRef.current = parkedCount
+      return () => clearTimeout(t)
+    }
+    prevParkedRef.current = parkedCount
+  }, [parkedCount])
 
   // Feature 1: Live Tab Title
   useEffect(() => {
@@ -845,7 +858,7 @@ export function ChatView({
                 Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
               </button>
               <button onClick={() => setActiveTab('parking')} className={mobileTabClass('parking', 'amber')}>
-                Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
+                Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : ''}
               </button>
             </div>
             <button
@@ -1004,7 +1017,7 @@ export function ChatView({
               Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
             </button>
             <button onClick={() => setActiveTab('parking')} className={tabClass('parking', 'amber')}>
-              Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : ''}
             </button>
           </div>
 
