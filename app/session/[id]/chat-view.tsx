@@ -10,6 +10,7 @@ import { saveSession } from '@/lib/sessions'
 
 const TRIGGER = '<<begin>>'
 
+type Tab = 'vision' | 'actions' | 'parking'
 type DbMessage = { id: string; role: 'user' | 'assistant'; content: string }
 
 function toUIMessages(dbMessages: DbMessage[]): UIMessage[] {
@@ -43,24 +44,91 @@ function countParkingItems(content: string): number {
     .filter((l) => l.startsWith('|') && !l.includes('Date') && !l.includes('----')).length
 }
 
+function countCompletedActions(content: string): { done: number; total: number } {
+  const lines = content.split('\n')
+  const checkboxes = lines.filter((l) => l.match(/^- \[[ xX]\]/))
+  const done = checkboxes.filter((l) => l.match(/^- \[[xX]\]/)).length
+  return { done, total: checkboxes.length }
+}
+
+function ActionPlan({ content }: { content: string }) {
+  return (
+    <div className="space-y-1">
+      {content.split('\n').map((line, i) => {
+        if (line.startsWith('# ')) {
+          return (
+            <p key={i} className="text-xs font-semibold text-zinc-400 uppercase tracking-wider pb-2">
+              {line.slice(2)}
+            </p>
+          )
+        }
+        if (line.startsWith('## ')) {
+          return (
+            <p key={i} className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider pt-4 pb-1 first:pt-0">
+              {line.slice(3)}
+            </p>
+          )
+        }
+        if (line.startsWith('- [x] ') || line.startsWith('- [X] ')) {
+          return (
+            <div key={i} className="flex items-start gap-2.5 py-0.5">
+              <span className="mt-0.5 w-3.5 h-3.5 rounded border border-emerald-700/60 bg-emerald-950/50 shrink-0 flex items-center justify-center">
+                <span className="text-[8px] leading-none text-emerald-400">✓</span>
+              </span>
+              <span className="text-xs text-zinc-600 leading-snug line-through">{line.slice(6)}</span>
+            </div>
+          )
+        }
+        if (line.startsWith('- [ ] ')) {
+          return (
+            <div key={i} className="flex items-start gap-2.5 py-0.5">
+              <span className="mt-0.5 w-3.5 h-3.5 rounded border border-zinc-700 shrink-0 bg-zinc-900/80" />
+              <span className="text-xs text-zinc-300 leading-snug">{line.slice(6)}</span>
+            </div>
+          )
+        }
+        if (line.startsWith('- ')) {
+          return (
+            <div key={i} className="flex items-start gap-2.5 py-0.5">
+              <span className="mt-1.5 w-1 h-1 rounded-full bg-zinc-700 shrink-0" />
+              <span className="text-xs text-zinc-400 leading-snug">{line.slice(2)}</span>
+            </div>
+          )
+        }
+        if (line.trim() === '' || line === '---') {
+          return <div key={i} className="h-1" />
+        }
+        return (
+          <p key={i} className="text-xs text-zinc-500 leading-relaxed">
+            {line}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 export function ChatView({
   sessionId,
   initialMessages,
   initialVision,
   initialParkingLot,
+  initialActions,
   initialStatus,
 }: {
   sessionId: string
   initialMessages: DbMessage[]
   initialVision: string
   initialParkingLot: string
+  initialActions: string
   initialStatus: string
 }) {
   const router = useRouter()
   const [input, setInput] = useState('')
   const [vision, setVision] = useState(initialVision)
   const [parkingLot, setParkingLot] = useState(initialParkingLot)
-  const [activeTab, setActiveTab] = useState<'vision' | 'parking'>('vision')
+  const [actions, setActions] = useState(initialActions)
+  const [activeTab, setActiveTab] = useState<Tab>('actions')
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
   const [newSessionLoading, setNewSessionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -87,7 +155,7 @@ export function ChatView({
     }
   }
 
-  function openMobileArtifacts(tab: 'vision' | 'parking') {
+  function openMobileArtifacts(tab: Tab) {
     setActiveTab(tab)
     setShowMobileArtifacts(true)
   }
@@ -101,7 +169,8 @@ export function ChatView({
 
   function downloadAll() {
     const parts = [
-      vision && `# Vision Document\n\n${vision}`,
+      actions && `${actions}`,
+      vision && `\n---\n\n# Vision Document\n\n${vision}`,
       parkingLot && `\n---\n\n${parkingLot}`,
     ].filter(Boolean)
     if (parts.length) download('kora-session.md', parts.join(''))
@@ -132,6 +201,11 @@ export function ChatView({
           const row = payload.new as { type: string; content: string }
           if (row.type === 'vision') setVision(row.content)
           if (row.type === 'parking_lot') setParkingLot(row.content)
+          if (row.type === 'actions') {
+            setActions(row.content)
+            // Auto-switch to actions tab on first update so founder sees it immediately
+            setActiveTab((prev) => (prev === 'actions' || !row.content ? prev : 'actions'))
+          }
         }
       )
       .subscribe()
@@ -143,10 +217,8 @@ export function ChatView({
   }, [messages, isLoading])
 
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
-  const visibleMessages = messages.filter((m) => {
-    const text = getTextContent(m)
-    return !text.startsWith('<<')
-  })
+  const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
+  const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
   const isCompleted =
     initialStatus === 'completed' ||
     messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
@@ -168,6 +240,14 @@ export function ChatView({
             {text}
           </p>
         ) : null
+      }
+      if (part.type === 'tool-emit_actions') {
+        return (
+          <div key={i} className="flex items-center gap-2 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+            <span className="text-xs font-mono text-sky-400">Action plan updated</span>
+          </div>
+        )
       }
       if (part.type === 'tool-emit_vision') {
         return (
@@ -202,6 +282,149 @@ export function ChatView({
     })
   }
 
+  // ─── Tab button helpers ───────────────────────────────────────────────────
+  function tabClass(tab: Tab, color: 'violet' | 'sky' | 'amber') {
+    const active = activeTab === tab
+    const colors = {
+      violet: active
+        ? 'text-violet-300 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
+        : 'text-zinc-500 hover:text-zinc-300',
+      sky: active
+        ? 'text-sky-300 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
+        : 'text-zinc-500 hover:text-zinc-300',
+      amber: active
+        ? 'text-amber-400 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
+        : 'text-zinc-500 hover:text-zinc-300',
+    }
+    return `px-3 py-2 text-xs font-medium rounded-t transition-colors ${colors[color]}`
+  }
+
+  function mobileTabClass(tab: Tab, color: 'violet' | 'sky' | 'amber') {
+    const active = activeTab === tab
+    const colors = {
+      violet: active ? 'text-violet-300' : 'text-zinc-500',
+      sky: active ? 'text-sky-300' : 'text-zinc-500',
+      amber: active ? 'text-amber-400' : 'text-zinc-500',
+    }
+    return `px-3 py-2 text-xs font-medium rounded-t transition-colors ${colors[color]}`
+  }
+
+  // ─── Shared artifact content renderer ────────────────────────────────────
+  function renderTabContent() {
+    if (activeTab === 'vision') {
+      return vision ? (
+        <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{vision}</pre>
+      ) : (
+        <div className="space-y-4 py-1">
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Vision Document</p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Not drafted yet. Kora will generate your vision document once there is enough signal from the conversation.
+          </p>
+          <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
+            {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map((item) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <span className="w-3 h-px bg-zinc-800" />
+                <span className="text-[11px] text-zinc-700">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (activeTab === 'actions') {
+      return actions ? (
+        <ActionPlan content={actions} />
+      ) : (
+        <div className="space-y-4 py-1">
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Action Plan</p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Your action plan will appear here as the conversation starts — concrete steps you can take today.
+          </p>
+          <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2.5">
+            {['Do Now', 'Complete This Week', 'Gate 1 Exit Checklist'].map((item) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <span className="w-3.5 h-3.5 rounded border border-zinc-800 shrink-0" />
+                <span className="text-[11px] text-zinc-700">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (activeTab === 'parking') {
+      return parkingLot ? (
+        <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{parkingLot}</pre>
+      ) : (
+        <div className="space-y-4 py-1">
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deferred Ideas</p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Out-of-scope ideas are saved here — not discarded, just deferred until the right gate.
+          </p>
+        </div>
+      )
+    }
+  }
+
+  // ─── Shared export footer ─────────────────────────────────────────────────
+  function renderExportFooter(mobile = false) {
+    const hasAny = vision || actions || parkingLot
+    if (!hasAny) return null
+    const btnClass = mobile
+      ? 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
+      : 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
+
+    return (
+      <div className={`shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3 ${mobile ? '' : ''}`}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-zinc-600 mr-1">Export</span>
+          {actions && (
+            <button onClick={() => download('actions.md', actions)} className={btnClass}>
+              actions.md
+            </button>
+          )}
+          {vision && (
+            <button onClick={() => download('vision.md', vision)} className={btnClass}>
+              vision.md
+            </button>
+          )}
+          {parkingLot && (
+            <button onClick={() => download('parking_lot.md', parkingLot)} className={btnClass}>
+              parking_lot.md
+            </button>
+          )}
+          {(actions || vision) && parkingLot && (
+            <button
+              onClick={downloadAll}
+              className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
+            >
+              all.md
+            </button>
+          )}
+        </div>
+        {mobile ? (
+          <div className="flex items-center gap-3">
+            <button onClick={copyUrl} className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors font-mono">
+              {copied ? 'Copied!' : 'Copy link'}
+            </button>
+            <Link href={`/session/${sessionId}/view`} className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors">
+              Share view ↗
+            </Link>
+          </div>
+        ) : (
+          <Link
+            href={`/session/${sessionId}/view`}
+            className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-violet-300 transition-colors"
+          >
+            <span>Share read-only view</span>
+            <span>↗</span>
+          </Link>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
@@ -218,10 +441,10 @@ export function ChatView({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => openMobileArtifacts('vision')}
-            className="lg:hidden text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+            onClick={() => openMobileArtifacts('actions')}
+            className="lg:hidden text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-sky-800/50 hover:text-sky-300 transition-all"
           >
-            Artifacts
+            Actions
           </button>
           {parkedCount > 0 && (
             <button
@@ -267,20 +490,13 @@ export function ChatView({
         <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
           <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800/60">
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setActiveTab('vision')}
-                className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
-                  activeTab === 'vision' ? 'text-violet-300' : 'text-zinc-500'
-                }`}
-              >
-                Vision Draft
+              <button onClick={() => setActiveTab('vision')} className={mobileTabClass('vision', 'violet')}>
+                Vision
               </button>
-              <button
-                onClick={() => setActiveTab('parking')}
-                className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
-                  activeTab === 'parking' ? 'text-amber-400' : 'text-zinc-500'
-                }`}
-              >
+              <button onClick={() => setActiveTab('actions')} className={mobileTabClass('actions', 'sky')}>
+                Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
+              </button>
+              <button onClick={() => setActiveTab('parking')} className={mobileTabClass('parking', 'amber')}>
                 Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
               </button>
             </div>
@@ -291,82 +507,8 @@ export function ChatView({
               ✕ Close
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-5">
-            {activeTab === 'vision' ? (
-              vision ? (
-                <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{vision}</pre>
-              ) : (
-                <div className="space-y-4 py-1">
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Vision Document</p>
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    Not drafted yet. Kora will generate your vision document once there is enough signal from the conversation.
-                  </p>
-                  <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
-                    {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map((item) => (
-                      <div key={item} className="flex items-center gap-2.5">
-                        <span className="w-3 h-px bg-zinc-800" />
-                        <span className="text-[11px] text-zinc-700">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            ) : parkingLot ? (
-              <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{parkingLot}</pre>
-            ) : (
-              <div className="space-y-4 py-1">
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Deferred Ideas</p>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Out-of-scope ideas are saved here — not discarded, just deferred until the right gate.
-                </p>
-              </div>
-            )}
-          </div>
-          {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-zinc-600 mr-1">Export</span>
-                {vision && (
-                  <button
-                    onClick={() => download('vision.md', vision)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                  >
-                    vision.md
-                  </button>
-                )}
-                {parkingLot && (
-                  <button
-                    onClick={() => download('parking_lot.md', parkingLot)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                  >
-                    parking_lot.md
-                  </button>
-                )}
-                {vision && parkingLot && (
-                  <button
-                    onClick={downloadAll}
-                    className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
-                  >
-                    all.md
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={copyUrl}
-                  className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors font-mono"
-                >
-                  {copied ? 'Copied!' : 'Copy link'}
-                </button>
-                <Link
-                  href={`/session/${sessionId}/view`}
-                  className="text-[11px] text-zinc-500 hover:text-violet-300 transition-colors"
-                >
-                  Share view ↗
-                </Link>
-              </div>
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto p-5">{renderTabContent()}</div>
+          {renderExportFooter(true)}
         </div>
       )}
 
@@ -460,9 +602,7 @@ export function ChatView({
                     Send
                   </button>
                 </form>
-                <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">
-                  Shift+Enter for a new line
-                </p>
+                <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">Shift+Enter for a new line</p>
               </>
             )}
           </div>
@@ -472,112 +612,22 @@ export function ChatView({
         <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800/60">
           {/* Tabs */}
           <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-3">
-            <button
-              onClick={() => setActiveTab('vision')}
-              className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
-                activeTab === 'vision'
-                  ? 'text-violet-300 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              Vision Draft
+            <button onClick={() => setActiveTab('vision')} className={tabClass('vision', 'violet')}>
+              Vision
             </button>
-            <button
-              onClick={() => setActiveTab('parking')}
-              className={`px-3 py-2 text-xs font-medium rounded-t transition-colors ${
-                activeTab === 'parking'
-                  ? 'text-amber-400 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
+            <button onClick={() => setActiveTab('actions')} className={tabClass('actions', 'sky')}>
+              Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
+            </button>
+            <button onClick={() => setActiveTab('parking')} className={tabClass('parking', 'amber')}>
               Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
             </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-5">
-            {activeTab === 'vision' ? (
-              vision ? (
-                <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                  {vision}
-                </pre>
-              ) : (
-                <div className="space-y-4 py-1">
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                    Vision Document
-                  </p>
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    Not drafted yet. Kora will generate your vision document once
-                    there is enough signal from the conversation.
-                  </p>
-                  <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2">
-                    {['Wedge sentence', 'Customer persona', 'Core pain', 'Why now', 'Why you'].map(
-                      (item) => (
-                        <div key={item} className="flex items-center gap-2.5">
-                          <span className="w-3 h-px bg-zinc-800" />
-                          <span className="text-[11px] text-zinc-700">{item}</span>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )
-            ) : parkingLot ? (
-              <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                {parkingLot}
-              </pre>
-            ) : (
-              <div className="space-y-4 py-1">
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                  Deferred Ideas
-                </p>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Out-of-scope ideas are saved here — not discarded, just deferred
-                  until the right gate.
-                </p>
-              </div>
-            )}
-          </div>
+          <div className="flex-1 overflow-y-auto p-5">{renderTabContent()}</div>
 
           {/* Downloads */}
-          {(vision || parkingLot) && (
-            <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-zinc-600 mr-1">Export</span>
-                {vision && (
-                  <button
-                    onClick={() => download('vision.md', vision)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                  >
-                    vision.md
-                  </button>
-                )}
-                {parkingLot && (
-                  <button
-                    onClick={() => download('parking_lot.md', parkingLot)}
-                    className="text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors"
-                  >
-                    parking_lot.md
-                  </button>
-                )}
-                {vision && parkingLot && (
-                  <button
-                    onClick={downloadAll}
-                    className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
-                  >
-                    all.md
-                  </button>
-                )}
-              </div>
-              <Link
-                href={`/session/${sessionId}/view`}
-                className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-violet-300 transition-colors"
-              >
-                <span>Share read-only view</span>
-                <span>↗</span>
-              </Link>
-            </div>
-          )}
+          {renderExportFooter(false)}
         </aside>
       </div>
     </div>

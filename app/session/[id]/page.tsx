@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabase'
 import { ChatView } from './chat-view'
 import { notFound } from 'next/navigation'
+
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const sb = supabaseServer()
@@ -27,6 +28,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
 
   const visionContent = artifacts?.find((a) => a.type === 'vision')?.content ?? ''
   const parkingContent = artifacts?.find((a) => a.type === 'parking_lot')?.content ?? ''
+  const actionsContent = artifacts?.find((a) => a.type === 'actions')?.content ?? ''
 
   return (
     <ChatView
@@ -34,6 +36,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       initialMessages={initialMessages}
       initialVision={visionContent}
       initialParkingLot={parkingContent}
+      initialActions={actionsContent}
       initialStatus={(session.status as string) ?? 'active'}
     />
   )

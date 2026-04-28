@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer()
 
-  // Fetch current artifacts so the agent knows what it has already written
+  // Fetch all current artifacts — agent needs to see every file it has written
   const { data: artifacts } = await sb
     .from('artifacts')
     .select('type, content')
@@ -19,15 +19,24 @@ export async function POST(req: Request) {
 
   const visionArtifact = artifacts?.find((a) => a.type === 'vision')
   const parkingArtifact = artifacts?.find((a) => a.type === 'parking_lot')
+  const actionsArtifact = artifacts?.find((a) => a.type === 'actions')
   const messageCount = messages.filter((m) => m.role === 'user' || m.role === 'assistant').length
 
-  // Inject session state into system prompt so the agent can see its own artifacts
+  // Inject full session state into system prompt so the agent has complete context
   const contextLines: string[] = ['\n---\n## Session context\n', `Messages so far: ${messageCount}`]
+
   if (visionArtifact) {
     contextLines.push(`Phase: 2 or 3 — vision draft exists.\n\nCurrent vision.md:\n${visionArtifact.content}`)
   } else {
     contextLines.push('Phase: 1 — no vision draft yet. Start with The User section.')
   }
+
+  if (actionsArtifact) {
+    contextLines.push(`\nCurrent actions.md:\n${actionsArtifact.content}`)
+  } else {
+    contextLines.push('\nNo actions.md yet — emit_actions immediately after the first user message.')
+  }
+
   if (parkingArtifact) {
     contextLines.push(`\nCurrent parking_lot.md:\n${parkingArtifact.content}`)
   }
@@ -40,7 +49,7 @@ export async function POST(req: Request) {
   let apiMessages = modelMessages
   if (modelMessages.length === 0 || modelMessages[0]?.role !== 'user') {
     const trigger = visionArtifact
-      ? `<<resume>> A vision draft exists. Read it in the session context, identify the weakest section, and ask your next question.`
+      ? `<<resume>> Vision draft exists. Read session context, identify the weakest section, update actions.md if needed, and ask your next question.`
       : `<<begin>>`
     apiMessages = [{ role: 'user' as const, content: trigger }, ...modelMessages]
   }
@@ -68,8 +77,22 @@ export async function POST(req: Request) {
     model: anthropic('claude-sonnet-4-6'),
     system: systemWithContext,
     messages: apiMessages,
-    stopWhen: stepCountIs(10),
+    stopWhen: stepCountIs(15),
     tools: {
+      emit_actions: tool({
+        description:
+          'Maintain the founder\'s action plan. Call immediately after the first user message with a starter checklist, then update after every meaningful answer — replacing generic placeholders with specific names, places, scripts, and numbers from the conversation. Every item must be executable tomorrow morning without asking anyone.',
+        inputSchema: z.object({
+          content: z.string().describe('Full markdown content of actions.md — always emit the complete file, not just changes'),
+        }),
+        execute: async ({ content }) => {
+          await sb.from('artifacts').upsert(
+            { session_id: sessionId, type: 'actions', content, updated_at: new Date().toISOString() },
+            { onConflict: 'session_id,type' }
+          )
+          return { updated: true }
+        },
+      }),
       emit_vision: tool({
         description:
           'Publish or update vision.md. Call after ~6 exchanges with a first draft — use [TBD] for missing sections. Update whenever a section meaningfully sharpens. Always emit after the Wedge section is filled.',
