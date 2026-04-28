@@ -341,6 +341,7 @@ export function ChatView({
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -469,6 +470,13 @@ export function ChatView({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
 
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
   const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
@@ -864,6 +872,7 @@ export function ChatView({
                 )}
                 <form onSubmit={handleSubmit} className="flex gap-3 items-end">
                   <textarea
+                    ref={textareaRef}
                     value={input}
                     onChange={handleInputChange}
                     onKeyDown={(e) => {
@@ -873,9 +882,9 @@ export function ChatView({
                       }
                     }}
                     placeholder="Type your response..."
-                    rows={3}
+                    rows={1}
                     disabled={isLoading}
-                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all"
+                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all min-h-[48px] max-h-40 overflow-y-auto"
                   />
                   <button
                     type="submit"
