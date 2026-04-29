@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Prose } from '@/components/prose'
 import { parseWedge, parseUserPersona } from '@/lib/utils'
 import { loadSessions } from '@/lib/sessions'
@@ -43,6 +43,14 @@ function LinkIcon() {
   )
 }
 
+type PublicVision = {
+  id: string
+  idea: string | null
+  createdAt: string
+  viewCount: number
+  wedge: string
+  reactionCounts: ReactionCounts
+}
 
 export function ShareView({
   sessionId,
@@ -72,6 +80,14 @@ export function ShareView({
   const [listingLoading, setListingLoading] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
 
+  // Community feed
+  const [feed, setFeed] = useState<PublicVision[]>([])
+  const [hasMore, setHasMore] = useState(true)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const loadingRef = useRef(false)
+  const hasMoreRef = useRef(true)
+  const feedLengthRef = useRef(0)
+
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
   const persona = parseUserPersona(vision)
@@ -84,6 +100,38 @@ export function ShareView({
     fetch(`/api/session/${sessionId}/view`, { method: 'POST' })
       .then(() => setViewCount((c) => c + 1))
       .catch(() => {})
+  }, [sessionId])
+
+  // Infinite scroll — fires as sentinel enters the viewport
+  useEffect(() => {
+    async function loadMore() {
+      if (loadingRef.current || !hasMoreRef.current) return
+      loadingRef.current = true
+      try {
+        const offset = feedLengthRef.current
+        const res = await fetch(`/api/visions?limit=6&offset=${offset}&exclude=${sessionId}`)
+        const { visions: next = [] } = await res.json() as { visions: PublicVision[] }
+        setFeed((prev) => {
+          const combined = [...prev, ...next]
+          feedLengthRef.current = combined.length
+          return combined
+        })
+        if (next.length < 6) {
+          hasMoreRef.current = false
+          setHasMore(false)
+        }
+      } finally {
+        loadingRef.current = false
+      }
+    }
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore() },
+      { rootMargin: '300px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
   }, [sessionId])
 
   function copyLink() {
@@ -187,7 +235,7 @@ export function ShareView({
       <main className="flex-1 max-w-2xl w-full mx-auto px-5 pt-8 pb-32 space-y-8">
 
         {/* Header */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
             {new Date(createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             {viewCount > 0 && ` · ${viewCount.toLocaleString()} ${viewCount === 1 ? 'view' : 'views'}`}
@@ -195,6 +243,27 @@ export function ShareView({
           <h1 className="text-2xl sm:text-3xl font-bold text-zinc-50 leading-tight">
             {idea ?? 'Vision Document'}
           </h1>
+
+          {/* Gallery toggle — visible to owner immediately on load */}
+          {isOwner && (
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={toggleListed}
+                disabled={listingLoading}
+                className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0 ${listed ? 'bg-violet-600' : 'bg-zinc-800'} ${listingLoading ? 'opacity-50 cursor-wait' : ''}`}
+                role="switch"
+                aria-checked={listed}
+              >
+                <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${listed ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+              <span className={`text-xs ${listed ? 'text-violet-400' : 'text-zinc-600'}`}>
+                {listed ? 'Listed in public gallery' : 'Add to public gallery'}
+              </span>
+              {listed && (
+                <Link href="/visions" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Browse →</Link>
+              )}
+            </div>
+          )}
         </div>
 
         {!hasContent ? (
@@ -253,32 +322,13 @@ export function ShareView({
                   </div>
                 )}
 
-                {/* Owner controls */}
+                {/* Owner exports */}
                 {isOwner && (
-                  <div className="border-t border-zinc-900 pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xs ${listed ? 'text-violet-400' : 'text-zinc-600'}`}>
-                        {listed ? 'Listed in public gallery' : 'Add to public gallery'}
-                        {listed && (
-                          <Link href="/visions" className="ml-2 text-zinc-600 hover:text-zinc-400 transition-colors">Browse →</Link>
-                        )}
-                      </span>
-                      <button
-                        onClick={toggleListed}
-                        disabled={listingLoading}
-                        className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0 ${listed ? 'bg-violet-600' : 'bg-zinc-800'} ${listingLoading ? 'opacity-50 cursor-wait' : ''}`}
-                        role="switch"
-                        aria-checked={listed}
-                      >
-                        <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${listed ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-zinc-700">
-                      <span>Export:</span>
-                      <button onClick={() => download('vision.md', vision)} className="hover:text-zinc-400 transition-colors">vision.md</button>
-                      {parkingLot && <button onClick={() => download('parking_lot.md', parkingLot)} className="hover:text-zinc-400 transition-colors">parking_lot.md</button>}
-                      {parkingLot && <button onClick={downloadAll} className="hover:text-zinc-400 transition-colors">all.md</button>}
-                    </div>
+                  <div className="flex items-center gap-4 text-xs text-zinc-700 pt-1">
+                    <span>Export:</span>
+                    <button onClick={() => download('vision.md', vision)} className="hover:text-zinc-400 transition-colors">vision.md</button>
+                    {parkingLot && <button onClick={() => download('parking_lot.md', parkingLot)} className="hover:text-zinc-400 transition-colors">parking_lot.md</button>}
+                    {parkingLot && <button onClick={downloadAll} className="hover:text-zinc-400 transition-colors">all.md</button>}
                   </div>
                 )}
               </>
@@ -297,6 +347,55 @@ export function ShareView({
         </div>
 
       </main>
+
+      {/* ── Community feed (keep scrolling past the footer) ──────────── */}
+      {(feed.length > 0 || hasMore) && (
+        <section className="max-w-2xl w-full mx-auto px-5 pb-32">
+          <div className="border-t border-zinc-900 pt-10 mb-2">
+            <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">More from the community</p>
+          </div>
+          <div>
+            {feed.map((v) => {
+              const totalReactions = v.reactionCounts.user + v.reactionCounts.investor + v.reactionCounts.builder
+              return (
+                <Link
+                  key={v.id}
+                  href={`/session/${v.id}/view`}
+                  className="block group py-5 border-b border-zinc-900 hover:bg-zinc-900/20 -mx-5 px-5 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1.5 min-w-0">
+                      <p className="text-[10px] font-mono text-zinc-700">
+                        {new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {totalReactions > 0 && ` · ${totalReactions} signal${totalReactions === 1 ? '' : 's'}`}
+                        {v.viewCount > 0 && ` · ${v.viewCount} view${v.viewCount === 1 ? '' : 's'}`}
+                      </p>
+                      <p className="text-base font-semibold text-zinc-100 group-hover:text-white transition-colors truncate">
+                        {v.idea ?? 'Vision Document'}
+                      </p>
+                      {v.wedge && (
+                        <p className="text-sm text-zinc-500 leading-relaxed line-clamp-2">{v.wedge}</p>
+                      )}
+                    </div>
+                    <span className="text-zinc-700 group-hover:text-zinc-400 transition-colors shrink-0 mt-1 text-xs">→</span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+          <div ref={sentinelRef} className="pt-8 pb-4 flex justify-center">
+            {hasMore ? (
+              <div className="flex gap-1.5">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="w-1 h-1 rounded-full bg-zinc-700 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-700">You&apos;ve seen it all.</p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Sticky bottom action bar ─────────────────────────────────── */}
       <div

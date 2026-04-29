@@ -6,18 +6,23 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const limit = Math.min(Number(searchParams.get('limit') ?? '6'), 10)
+  const limit = Math.min(Number(searchParams.get('limit') ?? '6'), 20)
   const offset = Math.max(Number(searchParams.get('offset') ?? '0'), 0)
+  const exclude = searchParams.get('exclude')
 
   const sb = supabaseServer()
 
-  const { data: sessions } = await sb
+  let query = sb
     .from('sessions')
     .select('id, idea, created_at, view_count')
     .eq('listed', true)
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
+
+  if (exclude) query = query.neq('id', exclude)
+
+  const { data: sessions } = await query
 
   if (!sessions?.length) return NextResponse.json({ visions: [], hasMore: false })
 
