@@ -954,7 +954,7 @@ export function ChatView({
           {parkedCount > 0 && (
             <button
               onClick={() => openMobileArtifacts('parking')}
-              className="flex items-center gap-1.5 min-h-[36px] text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-3 py-2 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
+              className={`flex items-center gap-1.5 min-h-[36px] text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-3 py-2 hover:border-amber-400/40 hover:text-amber-400 transition-colors ${parkingBadgePulse ? 'animate-badge-bounce' : ''}`}
             >
               {parkedCount} deferred
             </button>
