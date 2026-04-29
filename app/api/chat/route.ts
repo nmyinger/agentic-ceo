@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   const contextLines: string[] = ['\n---\n## Session context\n', `Real messages so far: ${realMessageCount}`]
 
   if (visionArtifact) {
-    contextLines.push(`\nPhase: 2 or 3 — vision draft exists. Read it and identify the weakest section.\n\nCurrent vision.md:\n${visionArtifact.content}`)
+    contextLines.push(`\nPhase: 2 or 3 — vision draft exists. Find the single vaguest element in the weakest section. Ask one question that makes it concrete. No preamble.\n\nCurrent vision.md:\n${visionArtifact.content}`)
   } else {
     contextLines.push('\nPhase: 1 — no vision draft yet. Start with The User section.')
   }
