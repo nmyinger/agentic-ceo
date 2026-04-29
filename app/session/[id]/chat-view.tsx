@@ -1074,7 +1074,11 @@ export function ChatView({
                     Send
                   </button>
                 </form>
-                <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">Shift+Enter for a new line</p>
+                {visibleMessages.length < 20 && (
+                  <p className={`text-[11px] mt-2 ml-0.5 transition-colors duration-1000 ${visibleMessages.length >= 8 ? 'text-zinc-800' : 'text-zinc-700'}`}>
+                    Shift+Enter for a new line
+                  </p>
+                )}
                 {showIdleHint && (
                   <p className="text-[11px] text-zinc-700 mt-0.5 ml-0.5">Still here. Take your time.</p>
                 )}
