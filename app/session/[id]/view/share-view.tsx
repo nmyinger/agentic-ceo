@@ -72,8 +72,13 @@ export function ShareView({
     const text = wedge
       ? `${idea ? idea + ': ' : ''}${wedge} — built with @KoraAI`
       : `Check out this vision built with @KoraAI`
-    const url = `https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + window.location.href)}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    const encoded = encodeURIComponent(text + '\n' + window.location.href)
+    const webUrl = `https://x.com/intent/post?text=${encoded}`
+    // twitter:// opens the X app on iOS/Android; fall back to web if app not installed
+    window.location.href = `twitter://post?message=${encoded}`
+    setTimeout(() => {
+      if (!document.hidden) window.open(webUrl, '_blank', 'noopener,noreferrer')
+    }, 500)
   }
 
   function downloadAll() {
