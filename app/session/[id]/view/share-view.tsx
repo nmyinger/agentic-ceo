@@ -114,11 +114,16 @@ export function ShareView({
       ? `${idea ? idea + ': ' : ''}${wedge} — built with @KoraAI`
       : `Check out this vision built with @KoraAI`
     const pageUrl = window.location.href
-    window.open(
-      `https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`,
-      '_blank',
-      'noopener,noreferrer',
-    )
+    const xUrl = `https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`
+    // Touch devices: native share sheet reliably hands off to the X app.
+    // Desktop: popup blockers don't apply to synchronous window.open, go straight to x.com.
+    if (navigator.maxTouchPoints > 0 && typeof navigator.share === 'function') {
+      navigator.share({ text, url: pageUrl }).catch((err) => {
+        if ((err as Error).name !== 'AbortError') window.open(xUrl, '_blank', 'noopener,noreferrer')
+      })
+      return
+    }
+    window.open(xUrl, '_blank', 'noopener,noreferrer')
   }
 
   async function react(type: keyof ReactionCounts) {
