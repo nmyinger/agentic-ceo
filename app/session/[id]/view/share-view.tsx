@@ -125,16 +125,18 @@ export function ShareView({
       } catch {}
       return
     }
-    // React — optimistic update is the source of truth; server just persists
+    // React — optimistic, then sync from server
     saveLocalReaction(sessionId, type)
     setMyReactions((prev) => [...prev, type])
     setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
     try {
-      await fetch(`/api/session/${sessionId}/react`, {
+      const res = await fetch(`/api/session/${sessionId}/react`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),
       })
+      const { counts: updated } = await res.json()
+      if (updated) setCounts(updated)
     } catch {
       // Revert optimistic update on network error
       removeLocalReaction(sessionId, type)

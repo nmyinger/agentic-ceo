@@ -8,6 +8,7 @@ import {
   ReactionType,
   getLocalReactions,
   saveLocalReaction,
+  removeLocalReaction,
   recordView,
 } from '@/lib/reactions'
 import { ReactionPill } from '@/components/reaction-pill'
@@ -72,16 +73,39 @@ function VisionCard({
   }, [vision.id, onView])
 
   async function react(type: ReactionType) {
-    if (myReactions.includes(type)) return
-    // Optimistic update
-    setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
-    setMyReactions((prev) => [...prev, type])
+    if (myReactions.includes(type)) {
+      // Unreact — optimistic, then sync from server
+      removeLocalReaction(vision.id, type)
+      setMyReactions((prev) => prev.filter((t) => t !== type))
+      setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
+      try {
+        const res = await fetch(`/api/session/${vision.id}/react`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type }),
+        })
+        const { counts: updated } = await res.json()
+        if (updated) setCounts(updated)
+      } catch {}
+      return
+    }
+    // React — optimistic, then sync from server
     saveLocalReaction(vision.id, type)
-    await fetch(`/api/session/${vision.id}/react`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type }),
-    }).catch(() => {})
+    setMyReactions((prev) => [...prev, type])
+    setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
+    try {
+      const res = await fetch(`/api/session/${vision.id}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      })
+      const { counts: updated } = await res.json()
+      if (updated) setCounts(updated)
+    } catch {
+      removeLocalReaction(vision.id, type)
+      setMyReactions((prev) => prev.filter((t) => t !== type))
+      setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
+    }
   }
 
   const totalReactions = counts.user + counts.investor + counts.builder
