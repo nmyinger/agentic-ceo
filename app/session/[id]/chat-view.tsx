@@ -947,7 +947,7 @@ export function ChatView({
                   className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                    <div className={`shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors duration-300 ${isStreamingThis ? 'border-violet-500 bg-violet-900/60' : 'border-violet-700/50 bg-violet-950/50'}`}>
                       <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                     </div>
                   )}
@@ -971,7 +971,7 @@ export function ChatView({
             {/* Layer 2: live stream visible to passive viewers while active user's response streams */}
             {!isLoading && liveStreamContent && (
               <div className="flex gap-4">
-                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
@@ -984,7 +984,7 @@ export function ChatView({
 
             {isLoading && (
               <div className="flex gap-4">
-                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="flex items-center gap-1 pt-1.5">
