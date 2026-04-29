@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Prose } from '@/components/prose'
 import { parseWedge, parseUserPersona } from '@/lib/utils'
+import { loadSessions } from '@/lib/sessions'
 
 function download(filename: string, content: string) {
   const blob = new Blob([content], { type: 'text/markdown' })
@@ -84,6 +85,7 @@ export function ShareView({
   const [myReactions, setMyReactions] = useState<string[]>([])
   const [listed, setListed] = useState(initialListed)
   const [listingLoading, setListingLoading] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
 
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
@@ -91,6 +93,7 @@ export function ShareView({
   const totalReactions = counts.user + counts.investor + counts.builder
 
   useEffect(() => {
+    setIsOwner(loadSessions().some((s) => s.id === sessionId))
     setMyReactions(getLocalReactions(sessionId))
     const isNew = recordView(sessionId)
     if (!isNew) return
@@ -362,48 +365,50 @@ export function ShareView({
                     </button>
                   </div>
 
-                  {/* Gallery toggle */}
-                  <button
-                    onClick={toggleListed}
-                    disabled={listingLoading}
-                    className={[
-                      'w-full flex items-center justify-between min-h-[52px] rounded-xl border px-4 transition-all',
-                      listed
-                        ? 'border-violet-800/50 bg-violet-950/30'
-                        : 'border-zinc-800/60 bg-zinc-900/30 hover:border-zinc-700',
-                      listingLoading ? 'opacity-50 cursor-wait' : '',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-center gap-3 text-left">
-                      <span className={`text-sm font-medium ${listed ? 'text-violet-300' : 'text-zinc-300'}`}>
-                        {listed ? 'Listed in public gallery' : 'Add to public gallery'}
-                      </span>
-                      {listed && (
-                        <Link
-                          href="/visions"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[11px] font-mono text-violet-500 hover:text-violet-300 transition-colors"
-                        >
-                          Browse →
-                        </Link>
-                      )}
-                    </div>
-                    <div
+                  {/* Gallery toggle — owner only */}
+                  {isOwner && (
+                    <button
+                      onClick={toggleListed}
+                      disabled={listingLoading}
                       className={[
-                        'relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0',
-                        listed ? 'bg-violet-600' : 'bg-zinc-700',
+                        'w-full flex items-center justify-between min-h-[52px] rounded-xl border px-4 transition-all',
+                        listed
+                          ? 'border-violet-800/50 bg-violet-950/30'
+                          : 'border-zinc-800/60 bg-zinc-900/30 hover:border-zinc-700',
+                        listingLoading ? 'opacity-50 cursor-wait' : '',
                       ].join(' ')}
-                      role="switch"
-                      aria-checked={listed}
                     >
-                      <span
+                      <div className="flex items-center gap-3 text-left">
+                        <span className={`text-sm font-medium ${listed ? 'text-violet-300' : 'text-zinc-300'}`}>
+                          {listed ? 'Listed in public gallery' : 'Add to public gallery'}
+                        </span>
+                        {listed && (
+                          <Link
+                            href="/visions"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] font-mono text-violet-500 hover:text-violet-300 transition-colors"
+                          >
+                            Browse →
+                          </Link>
+                        )}
+                      </div>
+                      <div
                         className={[
-                          'inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200',
-                          listed ? 'translate-x-4' : 'translate-x-0.5',
+                          'relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0',
+                          listed ? 'bg-violet-600' : 'bg-zinc-700',
                         ].join(' ')}
-                      />
-                    </div>
-                  </button>
+                        role="switch"
+                        aria-checked={listed}
+                      >
+                        <span
+                          className={[
+                            'inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200',
+                            listed ? 'translate-x-4' : 'translate-x-0.5',
+                          ].join(' ')}
+                        />
+                      </div>
+                    </button>
+                  )}
                 </div>
 
                 {/* ── Downloads ─────────────────────────────────────────── */}
