@@ -68,17 +68,26 @@ export function ShareView({
     })
   }
 
-  function shareOnX() {
+  async function shareOnX() {
     const text = wedge
       ? `${idea ? idea + ': ' : ''}${wedge} — built with @KoraAI`
       : `Check out this vision built with @KoraAI`
-    const encoded = encodeURIComponent(text + '\n' + window.location.href)
-    const webUrl = `https://x.com/intent/post?text=${encoded}`
-    // twitter:// opens the X app on iOS/Android; fall back to web if app not installed
-    window.location.href = `twitter://post?message=${encoded}`
-    setTimeout(() => {
-      if (!document.hidden) window.open(webUrl, '_blank', 'noopener,noreferrer')
-    }, 500)
+    const pageUrl = window.location.href
+
+    // Web Share API: on mobile this opens the native share sheet (includes X app)
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ text, url: pageUrl })
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`, '_blank', 'noopener,noreferrer')
+        }
+      }
+      return
+    }
+
+    // Desktop: open X web intent directly
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`, '_blank', 'noopener,noreferrer')
   }
 
   function downloadAll() {
