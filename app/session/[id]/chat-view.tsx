@@ -381,6 +381,8 @@ export function ChatView({
   const [parkingBadgePulse, setParkingBadgePulse] = useState(false)
   const peerIdRef = useRef(Math.random().toString(36).slice(2))
   const peerLastSeenRef = useRef<Map<string, number>>(new Map())
+  const prevMessageCountRef = useRef(0)
+  const [latestMessageId, setLatestMessageId] = useState<string | null>(null)
   // Feature 5: Return Visitor Greeting — shown briefly when returning to an existing session
   const isReturn = typeof window !== 'undefined'
     && loadSessions().some((s) => s.id === sessionId)
@@ -586,6 +588,20 @@ export function ChatView({
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     }
   }, [isLoading, isCompleted])
+
+  // Micro 3: Message slide-fade — animate only the newest incoming message
+  useEffect(() => {
+    if (visibleMessages.length > prevMessageCountRef.current) {
+      const newest = visibleMessages[visibleMessages.length - 1]
+      if (newest) {
+        setLatestMessageId(newest.id)
+        const t = setTimeout(() => setLatestMessageId(null), 400)
+        prevMessageCountRef.current = visibleMessages.length
+        return () => clearTimeout(t)
+      }
+    }
+    prevMessageCountRef.current = visibleMessages.length
+  }, [visibleMessages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Feature 6: Deferred Badge Pulse — flash amber when parkedCount increases
   const prevParkedRef = useRef(parkedCount)
@@ -944,7 +960,7 @@ export function ChatView({
               return (
                 <div
                   key={message.id}
-                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : ''}`}
                 >
                   {message.role === 'assistant' && (
                     <div className={`shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors duration-300 ${isStreamingThis ? 'border-violet-500 bg-violet-900/60' : 'border-violet-700/50 bg-violet-950/50'}`}>
