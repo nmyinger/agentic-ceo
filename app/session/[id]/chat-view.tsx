@@ -669,7 +669,7 @@ export function ChatView({
       }
       if (part.type === 'tool-emit_actions') {
         return (
-          <div key={i} className="flex items-center gap-2 mt-1">
+          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
             <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
             <span className="text-xs font-mono text-sky-400">Action plan updated</span>
           </div>
@@ -677,7 +677,7 @@ export function ChatView({
       }
       if (part.type === 'tool-emit_vision') {
         return (
-          <div key={i} className="flex items-center gap-2 mt-1">
+          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
             <span className="text-xs font-mono text-emerald-500">Vision document updated</span>
           </div>
@@ -686,7 +686,7 @@ export function ChatView({
       if (part.type === 'tool-park_idea') {
         const idea = (part as { type: string; input?: { idea?: string } }).input?.idea
         return (
-          <div key={i} className="flex items-center gap-2 mt-1">
+          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
             <span className="text-xs font-mono text-amber-500">Deferred: {idea}</span>
           </div>
@@ -695,7 +695,7 @@ export function ChatView({
       if (part.type === 'tool-mark_complete') {
         const wedge = (part as { type: string; input?: { wedge_sentence?: string } }).input?.wedge_sentence
         return (
-          <div key={i} className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1">
+          <div key={i} className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1 animate-in fade-in-0 slide-in-from-left-2 duration-500">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
               <span className="text-xs font-mono text-emerald-400 font-semibold">Gate 1 complete</span>
