@@ -178,6 +178,24 @@ body::before {
   scrollbar-color: rgb(63 63 70 / 0.5) transparent;
 }
 
+/* Shimmer animation for active vision progress bar segment */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.35) 0%,
+    rgba(139, 92, 246, 0.55) 40%,
+    rgba(167, 139, 250, 0.8) 50%,
+    rgba(139, 92, 246, 0.55) 60%,
+    rgba(139, 92, 246, 0.35) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
 /* Hero heading gradient */
 .text-gradient-hero {
   background: linear-gradient(

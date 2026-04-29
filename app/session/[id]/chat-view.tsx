@@ -259,7 +259,7 @@ function VisionProgress({ content }: { content: string }) {
                 s.complete
                   ? 'bg-emerald-500'
                   : i === nextIdx && hasStarted
-                  ? 'bg-violet-500/50 animate-pulse'
+                  ? 'animate-shimmer'
                   : 'bg-zinc-800',
               ].join(' ')}
             />
