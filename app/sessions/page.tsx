@@ -77,7 +77,10 @@ export default function SessionsPage() {
 
   return (
     <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
+      <nav
+        className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
+        style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))' }}
+      >
         <Link
           href="/"
           className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
@@ -87,7 +90,7 @@ export default function SessionsPage() {
         <span className="text-xs font-mono text-zinc-600">Session History</span>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12 space-y-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-xl font-bold text-zinc-200">Your Sessions</h1>
@@ -96,7 +99,7 @@ export default function SessionsPage() {
           <button
             onClick={startNew}
             disabled={starting}
-            className="shrink-0 inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+            className="shrink-0 inline-flex items-center gap-2 min-h-[44px] bg-violet-600 text-white font-semibold px-4 py-2.5 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
           >
             {starting ? 'Starting…' : 'New session →'}
           </button>
@@ -113,7 +116,7 @@ export default function SessionsPage() {
             <button
               onClick={startNew}
               disabled={starting}
-              className="inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-violet-500 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none"
+              className="inline-flex items-center gap-2 min-h-[48px] bg-violet-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-violet-500 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm disabled:opacity-40 disabled:shadow-none"
             >
               Begin your first session →
             </button>
@@ -155,19 +158,19 @@ export default function SessionsPage() {
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                   <Link
                     href={`/session/${session.id}`}
-                    className="text-xs font-semibold text-violet-400 border border-violet-800/50 rounded-md px-3 py-1.5 hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20 transition-all"
+                    className="text-xs font-semibold text-violet-400 border border-violet-800/50 rounded-lg px-4 min-h-[44px] flex items-center hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20 transition-all"
                   >
                     Continue →
                   </Link>
                   <Link
                     href={`/session/${session.id}/view`}
-                    className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-1.5 hover:border-zinc-700 hover:text-zinc-400 transition-colors"
+                    className="text-xs text-zinc-500 border border-zinc-800/70 rounded-lg px-4 min-h-[44px] flex items-center hover:border-zinc-700 hover:text-zinc-400 transition-colors"
                   >
                     View results ↗
                   </Link>
                   <button
                     onClick={() => forget(session.id)}
-                    className="text-xs text-zinc-700 hover:text-zinc-500 px-2 py-1.5 transition-colors ml-auto"
+                    className="text-xs text-zinc-700 hover:text-zinc-500 px-3 min-h-[44px] flex items-center transition-colors ml-auto"
                   >
                     Remove
                   </button>

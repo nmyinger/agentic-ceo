@@ -49,38 +49,41 @@ export function ShareView({
 
   return (
     <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
+      <nav
+        className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
+        style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))' }}
+      >
         <Link
           href="/"
           className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
         >
           Kora
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={copyLink}
-            className="text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+            className="text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-3 min-h-[36px] flex items-center hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           {hasContent && (
             <button
               onClick={downloadAll}
-              className="text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+              className="hidden sm:flex items-center text-xs font-mono text-zinc-500 border border-zinc-800/70 rounded-md px-3 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all"
             >
               Export all
             </button>
           )}
           <Link
             href={`/session/${sessionId}`}
-            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 min-h-[36px] flex items-center hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Open session →
           </Link>
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
         {/* Header */}
         <div className="space-y-2 pb-2">
           <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
@@ -110,7 +113,7 @@ export function ShareView({
               <div className="flex items-center gap-0 border-b border-zinc-800/60">
                 <button
                   onClick={() => setActiveTab('vision')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  className={`px-4 py-2.5 min-h-[44px] flex items-center text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === 'vision'
                       ? 'text-violet-300 border-violet-500'
                       : 'text-zinc-500 border-transparent hover:text-zinc-300'
@@ -120,7 +123,7 @@ export function ShareView({
                 </button>
                 <button
                   onClick={() => setActiveTab('parking')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  className={`px-4 py-2.5 min-h-[44px] flex items-center text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === 'parking'
                       ? 'text-amber-400 border-amber-400'
                       : 'text-zinc-500 border-transparent hover:text-zinc-300'
@@ -184,7 +187,7 @@ export function ShareView({
           </p>
           <Link
             href="/"
-            className="shrink-0 inline-flex items-center gap-2 bg-violet-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm"
+            className="w-full sm:w-auto shrink-0 inline-flex justify-center items-center gap-2 min-h-[48px] bg-violet-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm"
           >
             Start your session →
           </Link>

@@ -381,6 +381,7 @@ export function ChatView({
   const [actions, setActions] = useState(initialActions)
   const [activeTab, setActiveTab] = useState<Tab>('actions')
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
+  const [closingSheet, setClosingSheet] = useState(false)
   const [newSessionLoading, setNewSessionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
@@ -432,6 +433,14 @@ export function ChatView({
     setShowMobileArtifacts(true)
   }
 
+  function closeSheet() {
+    setClosingSheet(true)
+    setTimeout(() => {
+      setShowMobileArtifacts(false)
+      setClosingSheet(false)
+    }, 260)
+  }
+
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setCopied(true)
@@ -451,6 +460,9 @@ export function ChatView({
   // Derived values — must be declared before useEffects that reference them
   const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
   const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
+  const visionProgress = vision.length > 0
+    ? Math.round((parseVisionDocument(vision).sections.filter((s) => s.complete).length / 6) * 100)
+    : 0
   const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
   const isCompleted =
     initialStatus === 'completed' ||
@@ -618,6 +630,12 @@ export function ChatView({
     }
     prevMessageCountRef.current = visibleMessages.length
   }, [visibleMessages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lock body scroll when bottom sheet is open (prevents iOS bounce on backdrop)
+  useEffect(() => {
+    document.body.classList.toggle('sheet-open', showMobileArtifacts)
+    return () => document.body.classList.remove('sheet-open')
+  }, [showMobileArtifacts])
 
   // Feature 6: Deferred Badge Pulse — flash amber when parkedCount increases
   const prevParkedRef = useRef(parkedCount)
@@ -861,50 +879,64 @@ export function ChatView({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex flex-col h-[100dvh] bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="shrink-0 border-b border-zinc-800/60 px-6 py-3.5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
-        <div className="flex items-center gap-4">
+      <header
+        className="relative shrink-0 border-b border-zinc-800/60 px-4 sm:px-6 pb-3.5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
+        style={{ paddingTop: 'max(14px, calc(14px + var(--safe-top)))' }}
+      >
+        <div className="flex items-center gap-3 sm:gap-4">
           <Link
             href="/"
             className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
           >
             Kora
           </Link>
-          <span className="text-zinc-800">|</span>
+          <span className="text-zinc-800 hidden sm:block">|</span>
           <span className="text-xs font-mono text-zinc-600 hidden sm:block">Gate 1 — Vision Architect</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Mobile: Vision shortcut button */}
+          <button
+            onClick={() => openMobileArtifacts('vision')}
+            className="lg:hidden min-h-[36px] flex items-center gap-1.5 text-xs text-violet-400/70 border border-violet-800/30 rounded-md px-3 py-2 hover:border-violet-600/50 hover:text-violet-300 transition-all"
+          >
+            Vision
+            {visionProgress > 0 && (
+              <span className={`w-1.5 h-1.5 rounded-full ${allSectionsComplete ? 'bg-emerald-500' : 'bg-violet-700'}`} />
+            )}
+          </button>
+          {/* Mobile: Actions shortcut */}
           <button
             onClick={() => openMobileArtifacts('actions')}
-            className="lg:hidden text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-sky-800/50 hover:text-sky-300 transition-all"
+            className="lg:hidden min-h-[36px] flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 hover:border-sky-800/50 hover:text-sky-300 transition-all"
           >
             Actions
           </button>
           {parkedCount > 0 && (
             <button
               onClick={() => openMobileArtifacts('parking')}
-              className="flex items-center gap-1.5 text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-2.5 py-1 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
+              className="flex items-center gap-1.5 min-h-[36px] text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-3 py-2 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
             >
               {parkedCount} deferred
             </button>
           )}
           <button
             onClick={copyUrl}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all font-mono"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all font-mono"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           <Link
             href={`/session/${sessionId}/view`}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Share ↗
           </Link>
           <button
             onClick={startNewSession}
             disabled={newSessionLoading}
-            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {newSessionLoading ? 'Starting…' : 'New session'}
           </button>
@@ -921,6 +953,13 @@ export function ChatView({
             {copied ? <span className="text-violet-400">copied</span> : sessionId.slice(0, 8)}
           </button>
         </div>
+        {/* Mobile vision progress bar — thin indicator at bottom of header */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-800/40 lg:hidden">
+          <div
+            className="h-full bg-violet-500/60 transition-all duration-700"
+            style={{ width: `${visionProgress}%` }}
+          />
+        </div>
       </header>
 
       {/* Error banner */}
@@ -931,33 +970,64 @@ export function ChatView({
         </div>
       )}
 
-      {/* Mobile artifacts overlay */}
+      {/* Mobile artifacts — bottom sheet */}
       {showMobileArtifacts && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800/60">
-            <div className="flex items-center gap-1">
-              <button onClick={() => setActiveTab('vision')} className={`${mobileTabClass('vision', 'violet')} inline-flex items-center gap-1.5`}>
+        <div
+          className="lg:hidden fixed inset-0 z-50"
+          onClick={closeSheet}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in-0 duration-200" />
+          {/* Sheet */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 flex flex-col bg-zinc-900 border-t border-zinc-800/60 rounded-t-2xl ${closingSheet ? 'animate-sheet-down' : 'animate-sheet-up'}`}
+            style={{ maxHeight: '88dvh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="shrink-0 flex justify-center pt-3 pb-1 no-callout">
+              <div className="w-9 h-1 rounded-full bg-zinc-700" />
+            </div>
+            {/* Tab row */}
+            <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-1 pb-0">
+              <button
+                onClick={() => setActiveTab('vision')}
+                className={`${mobileTabClass('vision', 'violet')} min-h-[44px] inline-flex items-center gap-1.5`}
+              >
                 Vision
                 {vision.length > 0 && (
                   <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
                 )}
               </button>
-              <button onClick={() => setActiveTab('actions')} className={mobileTabClass('actions', 'sky')}>
+              <button
+                onClick={() => setActiveTab('actions')}
+                className={`${mobileTabClass('actions', 'sky')} min-h-[44px]`}
+              >
                 Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
               </button>
-              <button onClick={() => setActiveTab('parking')} className={mobileTabClass('parking', 'amber')}>
-                Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : ''}
+              <button
+                onClick={() => setActiveTab('parking')}
+                className={`${mobileTabClass('parking', 'amber')} min-h-[44px]`}
+              >
+                Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : null}
+              </button>
+              <button
+                onClick={closeSheet}
+                className="ml-auto min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                aria-label="Close"
+              >
+                ✕
               </button>
             </div>
-            <button
-              onClick={() => setShowMobileArtifacts(false)}
-              className="text-zinc-500 hover:text-zinc-300 transition-colors text-sm px-2 py-1"
-            >
-              ✕ Close
-            </button>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 overscroll-contain" data-scroll>
+              {renderTabContent()}
+            </div>
+            {/* Export footer + home indicator clearance */}
+            <div className="shrink-0 pb-safe-sheet">
+              {renderExportFooter(true)}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-5">{renderTabContent()}</div>
-          {renderExportFooter(true)}
         </div>
       )}
 
@@ -965,7 +1035,7 @@ export function ChatView({
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
             {/* Feature 5: Return Visitor Greeting */}
             {showReturnGreet && (
               <p className="text-xs font-mono text-zinc-600">
@@ -989,7 +1059,8 @@ export function ChatView({
               return (
                 <div
                   key={message.id}
-                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : ''}`}
+                  data-message
+                  className={`flex gap-3 sm:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : ''}`}
                 >
                   {message.role === 'assistant' && (
                     <div className={`shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors duration-300 ${isStreamingThis ? 'border-violet-500 bg-violet-900/60' : 'border-violet-700/50 bg-violet-950/50'}`}>
@@ -997,7 +1068,7 @@ export function ChatView({
                     </div>
                   )}
                   <div
-                    className={`max-w-[76%] space-y-1.5 ${
+                    className={`max-w-[88%] sm:max-w-[76%] space-y-1.5 ${
                       message.role === 'user'
                         ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
                         : 'text-zinc-200'
@@ -1015,11 +1086,11 @@ export function ChatView({
 
             {/* Layer 2: live stream visible to passive viewers while active user's response streams */}
             {!isLoading && liveStreamContent && (
-              <div className="flex gap-4">
+              <div className="flex gap-3 sm:gap-4">
                 <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
-                <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
+                <div className="text-zinc-200 space-y-1.5 max-w-[88%] sm:max-w-[76%]">
                   <Prose>{liveStreamContent}</Prose>
                   {/* Micro 1: streaming cursor for passive viewer */}
                   <span className="inline-block w-px h-3.5 bg-zinc-400 animate-pulse align-middle ml-0.5" />
@@ -1028,7 +1099,7 @@ export function ChatView({
             )}
 
             {isLoading && (
-              <div className="flex gap-4">
+              <div className="flex gap-3 sm:gap-4">
                 <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
@@ -1043,7 +1114,10 @@ export function ChatView({
           </div>
 
           {/* Input */}
-          <div className="shrink-0 border-t border-zinc-800/60 p-4">
+          <div
+            className="shrink-0 border-t border-zinc-800/60 px-4 pt-4"
+            style={{ paddingBottom: 'max(16px, calc(16px + var(--safe-bottom)))' }}
+          >
             {isCompleted ? (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -1054,7 +1128,7 @@ export function ChatView({
                   <button
                     onClick={startNewSession}
                     disabled={newSessionLoading}
-                    className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                    className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
                   >
                     {newSessionLoading ? 'Starting…' : 'New session →'}
                   </button>
@@ -1089,22 +1163,26 @@ export function ChatView({
                         handleSubmit(e as unknown as React.FormEvent)
                       }
                     }}
-                    autoFocus
                     placeholder={allSectionsComplete ? 'State your wedge sentence without reading it.' : 'Type your response...'}
                     rows={1}
                     disabled={isLoading}
-                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-[height,border-color,box-shadow] duration-100 min-h-[48px] max-h-40 overflow-y-auto"
+                    inputMode="text"
+                    enterKeyHint="send"
+                    autoComplete="off"
+                    autoCorrect="on"
+                    spellCheck={true}
+                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-[16px] sm:text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-[height,border-color,box-shadow] duration-100 min-h-[48px] max-h-40 overflow-y-auto"
                   />
                   <button
                     type="submit"
                     disabled={isLoading || !input.trim()}
-                    className="px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
+                    className="min-h-[48px] min-w-[64px] px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
                   >
                     Send
                   </button>
                 </form>
                 {visibleMessages.length < 20 && (
-                  <p className={`text-[11px] mt-2 ml-0.5 transition-colors duration-1000 ${visibleMessages.length >= 8 ? 'text-zinc-800' : 'text-zinc-700'}`}>
+                  <p className={`hidden sm:block text-[11px] mt-2 ml-0.5 transition-colors duration-1000 ${visibleMessages.length >= 8 ? 'text-zinc-800' : 'text-zinc-700'}`}>
                     Shift+Enter for a new line
                   </p>
                 )}

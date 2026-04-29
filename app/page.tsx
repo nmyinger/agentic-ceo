@@ -96,7 +96,10 @@ export default function Home() {
   return (
     <main className="bg-zinc-950 text-zinc-100">
       {/* Nav */}
-      <nav className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
+      <nav
+        className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
+        style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))' }}
+      >
         <span className="text-sm font-semibold tracking-widest text-zinc-200 uppercase">
           Kora
         </span>
@@ -115,7 +118,7 @@ export default function Home() {
 
       {/* Hero */}
       <section
-        className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center px-4 sm:px-6 py-16 sm:py-24"
+        className="min-h-[calc(100dvh-57px)] flex flex-col items-center justify-center px-4 sm:px-6 py-16 sm:py-24"
         style={{
           background: 'radial-gradient(ellipse 80% 55% at 50% -5%, rgba(139,92,246,0.13) 0%, transparent 65%)',
         }}
@@ -141,7 +144,7 @@ export default function Home() {
             <button
               onClick={start}
               disabled={loading}
-              className="inline-flex items-center gap-2.5 bg-violet-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2.5 min-h-[52px] bg-violet-600 text-white font-semibold px-6 py-3.5 rounded-xl hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
             >
               {loading ? (
                 <>
@@ -266,7 +269,7 @@ export default function Home() {
                   <Link
                     key={s.id}
                     href={`/session/${s.id}`}
-                    className="flex items-center justify-between group border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/15 rounded-lg px-3.5 py-2.5 transition-all"
+                    className="flex items-center justify-between min-h-[44px] group border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/15 rounded-lg px-3.5 py-2.5 transition-all"
                   >
                     <span className="text-xs text-zinc-300 group-hover:text-violet-200 transition-colors truncate">
                       {s.title ?? s.id.slice(0, 8)}
@@ -284,7 +287,7 @@ export default function Home() {
           <div className="flex justify-center pt-2">
             <button
               onClick={() => storyRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="flex flex-col items-center gap-1.5 text-zinc-700 hover:text-zinc-500 transition-colors"
+              className="flex flex-col items-center gap-1.5 min-h-[44px] justify-center text-zinc-700 hover:text-zinc-500 transition-colors"
             >
               <span className="text-[10px] font-mono uppercase tracking-widest">See why it matters</span>
               <span className="text-base animate-bounce">↓</span>
@@ -475,7 +478,7 @@ export default function Home() {
               <button
                 onClick={start}
                 disabled={loading}
-                className="inline-flex items-center gap-2.5 bg-violet-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
+                className="w-full sm:w-auto inline-flex justify-center items-center gap-2.5 min-h-[52px] bg-violet-600 text-white font-semibold px-6 py-3.5 rounded-xl hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
               >
                 {loading ? (
                   <>
