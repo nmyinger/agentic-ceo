@@ -1,139 +1,385 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { supabaseServer } from '@/lib/supabase'
-import { parseWedge } from '@/lib/utils'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Public Visions — Kora',
-  description: 'Explore one-page visions built with Kora.',
+import Link from 'next/link'
+import { useEffect, useRef, useState, useCallback } from 'react'
+
+type ReactionCounts = { user: number; investor: number; builder: number }
+
+type FeedVision = {
+  id: string
+  idea: string | null
+  createdAt: string
+  viewCount: number
+  wedge: string
+  persona: string
+  reactionCounts: ReactionCounts
 }
 
-export const dynamic = 'force-dynamic'
+type PlatformStats = {
+  ideasKilled: number
+  completedSessions: number
+  visionsFormed: number
+  killRate: number | null
+}
 
-type ReactionRow = { type: string }
-type ArtifactRow = { session_id: string; content: string }
+const VIEW_KEY = 'kora_viewed_sessions'
+const REACT_KEY = 'kora_reactions'
+const BATCH = 6
 
-export default async function VisionsPage() {
-  const sb = supabaseServer()
+const REACTIONS: { type: keyof ReactionCounts; icon: string; label: string }[] = [
+  { type: 'user', icon: '👤', label: "I'm this user" },
+  { type: 'investor', icon: '💰', label: "I'd fund this" },
+  { type: 'builder', icon: '🔨', label: "I'd build this" },
+]
 
-  const { data: sessions } = await sb
-    .from('sessions')
-    .select('id, idea, created_at, view_count')
-    .eq('listed', true)
-    .eq('status', 'completed')
-    .order('created_at', { ascending: false })
-    .limit(50)
+function getViewedSessions(): string[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '[]') } catch { return [] }
+}
 
-  if (!sessions?.length) {
-    return (
-      <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-        <nav
-          className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
-          style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))' }}
+function markViewed(id: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const viewed = getViewedSessions()
+    if (!viewed.includes(id)) {
+      localStorage.setItem(VIEW_KEY, JSON.stringify([...viewed, id]))
+    }
+  } catch {}
+}
+
+function getMyReactions(): Record<string, string[]> {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}') } catch { return {} }
+}
+
+function saveMyReaction(sessionId: string, type: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const all = getMyReactions()
+    all[sessionId] = [...(all[sessionId] ?? []), type]
+    localStorage.setItem(REACT_KEY, JSON.stringify(all))
+  } catch {}
+}
+
+// ─── Single vision card ───────────────────────────────────────────────────────
+
+function VisionCard({
+  vision,
+  index,
+  total,
+  onView,
+}: {
+  vision: FeedVision
+  index: number
+  total: number
+  onView: (id: string) => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const hasTracked = useRef(false)
+  const [counts, setCounts] = useState<ReactionCounts>(vision.reactionCounts)
+  const [myReactions, setMyReactions] = useState<string[]>([])
+
+  // Load persisted reactions on mount
+  useEffect(() => {
+    setMyReactions(getMyReactions()[vision.id] ?? [])
+  }, [vision.id])
+
+  // Track view when card is ≥80% visible
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTracked.current) {
+          hasTracked.current = true
+          onView(vision.id)
+        }
+      },
+      { threshold: 0.8 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [vision.id, onView])
+
+  async function react(type: keyof ReactionCounts) {
+    if (myReactions.includes(type)) return
+    // Optimistic update
+    setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
+    setMyReactions((prev) => [...prev, type])
+    saveMyReaction(vision.id, type)
+    await fetch(`/api/session/${vision.id}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type }),
+    }).catch(() => {})
+  }
+
+  const totalReactions = counts.user + counts.investor + counts.builder
+
+  return (
+    <div
+      ref={cardRef}
+      className="h-[100dvh] scroll-snap-start shrink-0 flex flex-col bg-zinc-950 border-b border-zinc-800/40"
+    >
+      {/* Top bar */}
+      <div
+        className="shrink-0 flex items-center justify-between px-5 border-b border-zinc-800/40"
+        style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))', paddingBottom: '14px' }}
+      >
+        <Link
+          href="/"
+          className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
         >
-          <Link href="/" className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors">
-            Kora
-          </Link>
-          <span className="text-xs font-mono text-zinc-600">Public Visions</span>
-        </nav>
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-20 text-center space-y-4">
-          <p className="text-sm text-zinc-500">No public visions yet.</p>
-          <p className="text-xs text-zinc-700">Complete a Gate 1 session and toggle &quot;Public gallery&quot; on your vision to be listed here.</p>
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300 transition-colors mt-2">
-            Start a session →
-          </Link>
+          Kora
+        </Link>
+        <span className="text-[10px] font-mono text-zinc-600">{index + 1} / {total}</span>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex flex-col justify-center px-6 sm:px-10 py-8 space-y-6 min-h-0 overflow-hidden">
+        {/* Title */}
+        <div className="space-y-1">
+          <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-widest">
+            {new Date(vision.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 leading-snug">
+            {vision.idea ?? `Vision ${vision.id.slice(0, 8)}`}
+          </h2>
         </div>
-      </main>
+
+        {/* Wedge — the hero */}
+        {vision.wedge && (
+          <blockquote className="text-base sm:text-lg text-zinc-300 leading-relaxed border-l-2 border-violet-700/60 pl-4">
+            {vision.wedge}
+          </blockquote>
+        )}
+
+        {/* Persona */}
+        {vision.persona && (
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            <span className="text-zinc-700 uppercase tracking-widest font-mono text-[9px] mr-2">For</span>
+            {vision.persona}
+          </p>
+        )}
+
+        {/* Full vision link */}
+        <Link
+          href={`/session/${vision.id}/view`}
+          className="self-start text-xs text-violet-400 hover:text-violet-300 transition-colors font-medium"
+        >
+          View full vision ↗
+        </Link>
+      </div>
+
+      {/* Reaction bar */}
+      <div
+        className="shrink-0 border-t border-zinc-800/40 px-5"
+        style={{ paddingBottom: 'max(20px, calc(20px + var(--safe-bottom)))', paddingTop: '14px' }}
+      >
+        <div className="flex items-center gap-1 flex-wrap">
+          {REACTIONS.map(({ type, icon, label }) => {
+            const reacted = myReactions.includes(type)
+            const count = counts[type]
+            return (
+              <button
+                key={type}
+                onClick={() => react(type)}
+                disabled={reacted}
+                title={label}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-mono transition-all min-h-[36px] ${
+                  reacted
+                    ? 'border-violet-700/60 bg-violet-950/40 text-violet-300 cursor-default'
+                    : 'border-zinc-800/70 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300 active:scale-95'
+                }`}
+              >
+                <span>{icon}</span>
+                {count > 0 && <span>{count}</span>}
+              </button>
+            )
+          })}
+
+          {/* Stats */}
+          <div className="ml-auto flex items-center gap-3">
+            {totalReactions > 0 && (
+              <span className="text-[11px] font-mono text-zinc-700">{totalReactions} signal{totalReactions !== 1 ? 's' : ''}</span>
+            )}
+            {vision.viewCount > 0 && (
+              <span className="text-[11px] font-mono text-zinc-700">{vision.viewCount.toLocaleString()} view{vision.viewCount !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── End-of-feed card ─────────────────────────────────────────────────────────
+
+function EndCard({ stats }: { stats: PlatformStats | null }) {
+  return (
+    <div
+      className="h-[100dvh] scroll-snap-start shrink-0 flex flex-col bg-zinc-950"
+    >
+      <div className="flex-1 flex flex-col items-center justify-center px-8 text-center space-y-8">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold tracking-widest text-zinc-200 uppercase">Kora</p>
+          <p className="text-xs text-zinc-600 max-w-xs leading-relaxed">
+            You&apos;ve seen every public vision. Build yours.
+          </p>
+        </div>
+
+        {stats && (
+          <div className="grid grid-cols-3 gap-6">
+            {[
+              { label: 'visions formed', value: stats.visionsFormed },
+              { label: 'ideas killed', value: stats.ideasKilled },
+              { label: 'filter rate', value: stats.killRate != null ? `${Math.round(stats.killRate)}%` : '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="space-y-1">
+                <p className="text-xl font-bold text-zinc-100">{value}</p>
+                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest leading-snug">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 min-h-[48px] bg-violet-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm"
+        >
+          Start your session →
+        </Link>
+      </div>
+
+      <div
+        className="shrink-0 px-6 flex items-center justify-between border-t border-zinc-800/40"
+        style={{ paddingBottom: 'max(20px, calc(20px + var(--safe-bottom)))', paddingTop: '14px' }}
+      >
+        <p className="text-[10px] font-mono text-zinc-700">Built with Kora</p>
+        <Link href="/sessions" className="text-[10px] font-mono text-zinc-700 hover:text-zinc-500 transition-colors">
+          Your sessions →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main feed ────────────────────────────────────────────────────────────────
+
+export default function VisionsPage() {
+  const [visions, setVisions] = useState<FeedVision[]>([])
+  const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [stats, setStats] = useState<PlatformStats | null>(null)
+  const offsetRef = useRef(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return
+    setLoadingMore(true)
+    try {
+      const res = await fetch(`/api/visions?offset=${offsetRef.current}&limit=${BATCH}`)
+      const data = await res.json() as { visions: FeedVision[]; hasMore: boolean }
+      setVisions((prev) => [...prev, ...data.visions])
+      setHasMore(data.hasMore)
+      offsetRef.current += data.visions.length
+    } catch {}
+    setLoadingMore(false)
+  }, [loadingMore])
+
+  // Initial load
+  useEffect(() => {
+    async function init() {
+      await loadMore()
+      setLoading(false)
+      // Fetch stats for end card
+      fetch('/api/stats')
+        .then((r) => r.json())
+        .then(setStats)
+        .catch(() => {})
+    }
+    init()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Infinite scroll sentinel
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, loadMore])
+
+  function handleView(id: string) {
+    const viewed = getViewedSessions()
+    if (viewed.includes(id)) return
+    markViewed(id)
+    fetch(`/api/session/${id}/view`, { method: 'POST' }).catch(() => {})
+  }
+
+  if (loading) {
+    return (
+      <div className="h-[100dvh] bg-zinc-950 flex items-center justify-center gap-2 text-zinc-600">
+        <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 animate-pulse" />
+        <span className="text-sm">Loading…</span>
+      </div>
     )
   }
 
-  const ids = sessions.map((s) => s.id as string)
-
-  const [{ data: artifacts }, { data: reactionRows }] = await Promise.all([
-    sb.from('artifacts').select('session_id, content').eq('type', 'vision').in('session_id', ids),
-    sb.from('reactions').select('session_id, type').in('session_id', ids),
-  ])
-
-  const visionMap = new Map<string, string>()
-  for (const a of (artifacts as ArtifactRow[] | null) ?? []) {
-    visionMap.set(a.session_id, a.content)
-  }
-
-  const reactionMap = new Map<string, number>()
-  for (const r of (reactionRows as (ReactionRow & { session_id: string })[] | null) ?? []) {
-    reactionMap.set(r.session_id, (reactionMap.get(r.session_id) ?? 0) + 1)
+  if (visions.length === 0) {
+    return (
+      <div className="h-[100dvh] bg-zinc-950 flex flex-col items-center justify-center px-8 text-center space-y-5">
+        <p className="text-sm font-semibold tracking-widest text-zinc-200 uppercase">Kora</p>
+        <p className="text-sm text-zinc-500">No public visions yet.</p>
+        <p className="text-xs text-zinc-700 max-w-xs leading-relaxed">
+          Complete a Gate 1 session and enable &quot;Public gallery&quot; on your vision to appear here.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 min-h-[48px] bg-violet-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-violet-500 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] text-sm"
+        >
+          Start your session →
+        </Link>
+      </div>
+    )
   }
 
   return (
-    <main className="bg-zinc-950 text-zinc-100 min-h-screen">
-      <nav
-        className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-8 py-4 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
-        style={{ paddingTop: 'max(16px, calc(16px + var(--safe-top)))' }}
-      >
-        <Link href="/" className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors">
-          Kora
-        </Link>
-        <span className="text-xs font-mono text-zinc-600">Public Visions</span>
-      </nav>
+    <div
+      ref={containerRef}
+      className="h-[100dvh] overflow-y-scroll scroll-smooth"
+      style={{ scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+    >
+      {visions.map((vision, i) => (
+        <VisionCard
+          key={vision.id}
+          vision={vision}
+          index={i}
+          total={visions.length}
+          onView={handleView}
+        />
+      ))}
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-10">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-zinc-100">Public Visions</h1>
-          <p className="text-sm text-zinc-500">{sessions.length} {sessions.length === 1 ? 'vision' : 'visions'} shared by founders using Kora.</p>
+      {/* Infinite scroll trigger — loads next batch when near visible */}
+      {hasMore && (
+        <div ref={sentinelRef} className="h-[100dvh] scroll-snap-start shrink-0 flex items-center justify-center bg-zinc-950">
+          {loadingMore && (
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 animate-pulse" />
+          )}
         </div>
+      )}
 
-        <div className="space-y-4">
-          {sessions.map((session) => {
-            const vision = visionMap.get(session.id as string) ?? ''
-            const wedge = parseWedge(vision)
-            const totalReactions = reactionMap.get(session.id as string) ?? 0
-            const views = (session.view_count as number) ?? 0
-
-            return (
-              <Link
-                key={session.id as string}
-                href={`/session/${session.id}/view`}
-                className="block border border-zinc-800/60 hover:border-zinc-700/80 bg-zinc-900/20 hover:bg-zinc-900/40 rounded-xl p-5 sm:p-6 space-y-3 transition-all group"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1 min-w-0">
-                    <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
-                      {new Date(session.created_at as string).toLocaleDateString()}
-                    </p>
-                    <h2 className="text-base font-semibold text-zinc-100 group-hover:text-white transition-colors truncate">
-                      {(session.idea as string | null) ?? `Session ${(session.id as string).slice(0, 8)}`}
-                    </h2>
-                  </div>
-                  <span className="shrink-0 text-xs text-zinc-600 group-hover:text-zinc-400 transition-colors mt-1">↗</span>
-                </div>
-
-                {wedge && (
-                  <p className="text-sm text-zinc-400 leading-relaxed line-clamp-2">{wedge}</p>
-                )}
-
-                <div className="flex items-center gap-3 pt-1">
-                  {views > 0 && (
-                    <span className="text-[11px] font-mono text-zinc-700">{views.toLocaleString()} views</span>
-                  )}
-                  {totalReactions > 0 && (
-                    <span className="text-[11px] font-mono text-zinc-700">{totalReactions} signals</span>
-                  )}
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-
-        <div className="border-t border-zinc-800/50 pt-8 flex items-center justify-between">
-          <p className="text-xs text-zinc-600">Built with Kora</p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300 transition-colors"
-          >
-            Start your session →
-          </Link>
-        </div>
-      </div>
-    </main>
+      {/* End of feed */}
+      {!hasMore && <EndCard stats={stats} />}
+    </div>
   )
 }
