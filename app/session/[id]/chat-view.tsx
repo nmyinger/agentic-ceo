@@ -404,6 +404,8 @@ export function ChatView({
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevents realtime INSERT from duplicating the active sender's assistant reply (useChat already owns it)
+  const waitingForResponseRef = useRef(false)
 
   const { messages, setMessages, sendMessage, status } = useChat({
     id: sessionId,
@@ -492,7 +494,12 @@ export function ChatView({
         (payload) => {
           const row = payload.new as { id: string; role: 'user' | 'assistant'; content: string }
           setMessages((prev) => {
-            // Skip if this client already has the message (active user's optimistic state)
+            // If this client sent the message, useChat already owns it — skip the realtime echo
+            if (row.role === 'assistant' && waitingForResponseRef.current) {
+              waitingForResponseRef.current = false
+              return prev
+            }
+            // Skip if this client already has the message (text-based dedup for user messages)
             if (prev.some((m) => getTextContent(m) === row.content && m.role === row.role)) return prev
             return [...prev, { id: row.id, role: row.role, parts: [{ type: 'text' as const, text: row.content }] }]
           })
@@ -666,55 +673,59 @@ export function ChatView({
       event: 'typing',
       payload: { text: '' },
     }).catch(() => {})
+    waitingForResponseRef.current = true
     sendMessage({ text })
     textareaRef.current?.focus()
   }
 
   function renderMessage(msg: UIMessage) {
-    return msg.parts.map((part, i) => {
+    const textParts: TextUIPart[] = []
+    const sideTools: { type: string; input?: Record<string, unknown> }[] = []
+    let completePart: { wedge_sentence?: string } | null = null
+
+    for (const part of msg.parts) {
       if (part.type === 'text') {
-        const text = (part as TextUIPart).text
-        return text ? <div key={i}><Prose>{text}</Prose></div> : null
+        textParts.push(part as TextUIPart)
+      } else if (part.type === 'tool-mark_complete') {
+        completePart = ((part as { type: string; input?: { wedge_sentence?: string } }).input) ?? {}
+      } else {
+        sideTools.push(part as { type: string; input?: Record<string, unknown> })
       }
-      if (part.type === 'tool-emit_actions') {
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-            <span className="text-xs font-mono text-sky-400">Action plan updated</span>
+    }
+
+    return (
+      <>
+        {textParts.map((p, i) => p.text ? <div key={i}><Prose>{p.text}</Prose></div> : null)}
+        {sideTools.length > 0 && (
+          <div className="flex flex-wrap gap-x-4 mt-2 opacity-40">
+            {sideTools.map((part, i) => {
+              if (part.type === 'tool-emit_actions') {
+                return <span key={i} className="text-[10px] font-mono text-sky-400 tracking-wide">↻ actions</span>
+              }
+              if (part.type === 'tool-emit_vision') {
+                return <span key={i} className="text-[10px] font-mono text-emerald-400 tracking-wide">↻ vision</span>
+              }
+              if (part.type === 'tool-park_idea') {
+                const idea = (part.input as { idea?: string } | undefined)?.idea
+                return <span key={i} className="text-[10px] font-mono text-amber-400 tracking-wide">⊞{idea ? ` ${idea}` : ' parked'}</span>
+              }
+              return null
+            })}
           </div>
-        )
-      }
-      if (part.type === 'tool-emit_vision') {
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <span className="text-xs font-mono text-emerald-500">Vision document updated</span>
-          </div>
-        )
-      }
-      if (part.type === 'tool-park_idea') {
-        const idea = (part as { type: string; input?: { idea?: string } }).input?.idea
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1 animate-in fade-in-0 slide-in-from-left-2 duration-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-            <span className="text-xs font-mono text-amber-500">Deferred: {idea}</span>
-          </div>
-        )
-      }
-      if (part.type === 'tool-mark_complete') {
-        const wedge = (part as { type: string; input?: { wedge_sentence?: string } }).input?.wedge_sentence
-        return (
-          <div key={i} className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1 animate-in fade-in-0 slide-in-from-left-2 duration-500">
+        )}
+        {completePart !== null && (
+          <div className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1 animate-in fade-in-0 duration-500">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
               <span className="text-xs font-mono text-emerald-400 font-semibold">Gate 1 complete</span>
             </div>
-            {wedge && <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{wedge}&rdquo;</p>}
+            {completePart.wedge_sentence && (
+              <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{completePart.wedge_sentence}&rdquo;</p>
+            )}
           </div>
-        )
-      }
-      return null
-    })
+        )}
+      </>
+    )
   }
 
   // ─── Tab button helpers ───────────────────────────────────────────────────
