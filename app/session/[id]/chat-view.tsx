@@ -987,18 +987,29 @@ export function ChatView({
           {/* Input */}
           <div className="shrink-0 border-t border-zinc-800/60 p-4">
             {isCompleted ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+                  </div>
+                  <button
+                    onClick={startNewSession}
+                    disabled={newSessionLoading}
+                    className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  >
+                    {newSessionLoading ? 'Starting…' : 'New session →'}
+                  </button>
                 </div>
-                <button
-                  onClick={startNewSession}
-                  disabled={newSessionLoading}
-                  className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
-                >
-                  {newSessionLoading ? 'Starting…' : 'New session →'}
-                </button>
+                {/* Feature 9: Parking Lot on Completion */}
+                {parkedCount > 0 && (
+                  <button
+                    onClick={() => setActiveTab('parking')}
+                    className="text-xs font-mono text-amber-600/80 hover:text-amber-500 transition-colors ml-4"
+                  >
+                    {parkedCount} idea{parkedCount > 1 ? 's' : ''} deferred — none lost.
+                  </button>
+                )}
               </div>
             ) : (
               <>
