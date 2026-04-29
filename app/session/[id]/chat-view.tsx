@@ -681,6 +681,7 @@ export function ChatView({
     e.preventDefault()
     const text = input.trim()
     if (!text || isLoading) return
+    navigator.vibrate?.(10)
     setInput('')
     sessionStorage.removeItem(draftKey)
     setShowIdleHint(false)
