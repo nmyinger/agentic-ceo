@@ -16,10 +16,19 @@ function download(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
-function XIcon() {
+function XIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.745l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  )
+}
+
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
   )
 }
@@ -61,10 +70,10 @@ function removeLocalReaction(sessionId: string, type: string) {
 
 type ReactionCounts = { user: number; investor: number; builder: number }
 
-const REACTIONS: { type: keyof ReactionCounts; label: string; icon: string }[] = [
-  { type: 'user',     label: "I'm the target user", icon: '👤' },
-  { type: 'investor', label: "I'd fund this",        icon: '💰' },
-  { type: 'builder',  label: "I'd build this",       icon: '🔨' },
+const REACTIONS: { type: keyof ReactionCounts; emoji: string; label: string }[] = [
+  { type: 'user',     emoji: '👤', label: "I'm the user" },
+  { type: 'investor', emoji: '💰', label: "I'd fund this" },
+  { type: 'builder',  emoji: '🔨', label: "I'd build this" },
 ]
 
 export function ShareView({
@@ -98,7 +107,6 @@ export function ShareView({
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
   const persona = parseUserPersona(vision)
-  const totalReactions = counts.user + counts.investor + counts.builder
 
   useEffect(() => {
     setIsOwner(loadSessions().some((s) => s.id === sessionId))
@@ -123,8 +131,6 @@ export function ShareView({
       : `Check out this vision built with @KoraAI`
     const pageUrl = window.location.href
     const xUrl = `https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`
-    // Touch devices: native share sheet reliably hands off to the X app.
-    // Desktop: popup blockers don't apply to synchronous window.open, go straight to x.com.
     if (navigator.maxTouchPoints > 0 && typeof navigator.share === 'function') {
       navigator.share({ text, url: pageUrl }).catch((err) => {
         if ((err as Error).name !== 'AbortError') window.open(xUrl, '_blank', 'noopener,noreferrer')
@@ -136,7 +142,6 @@ export function ShareView({
 
   async function react(type: keyof ReactionCounts) {
     if (myReactions.includes(type)) {
-      // Undo reaction
       removeLocalReaction(sessionId, type)
       setMyReactions((prev) => prev.filter((t) => t !== type))
       setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
@@ -188,72 +193,37 @@ export function ShareView({
   }
 
   return (
-    <main className="bg-zinc-950 text-zinc-100 min-h-screen">
+    <div className="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col">
 
-      {/* ── Nav ─────────────────────────────────────────────────────── */}
-      <nav
-        className="sticky top-0 z-10 border-b border-zinc-800/50 px-4 sm:px-6 flex items-center justify-between bg-zinc-950/95 backdrop-blur-md"
-        style={{ paddingTop: 'max(14px, calc(14px + var(--safe-top)))', paddingBottom: '14px' }}
-      >
-        <Link
-          href="/"
-          className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
-        >
+      {/* ── Minimal nav ─────────────────────────────────────────────── */}
+      <nav className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-zinc-900">
+        <Link href="/" className="text-sm font-bold tracking-widest text-white uppercase">
           Kora
         </Link>
-        <div className="flex items-center gap-2">
-          {wedge && (
-            <button
-              onClick={shareOnX}
-              className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg px-3 min-h-[34px] transition-all"
-            >
-              <XIcon />
-              <span className="hidden sm:inline">Share</span>
-            </button>
-          )}
-          <button
-            onClick={copyLink}
-            className="text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg px-3 min-h-[34px] transition-all"
-          >
-            {copied ? '✓ Copied' : 'Copy link'}
-          </button>
-          <Link
-            href={`/session/${sessionId}`}
-            className="text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg px-3 min-h-[34px] flex items-center transition-all"
-          >
-            Open session
-          </Link>
-        </div>
+        <Link
+          href={`/session/${sessionId}`}
+          className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          Open session →
+        </Link>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-10">
+      {/* ── Content ─────────────────────────────────────────────────── */}
+      <main className="flex-1 max-w-2xl w-full mx-auto px-5 pt-8 pb-32 space-y-8">
 
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
-              Vision Architect · {new Date(createdAt).toLocaleDateString()}
-            </span>
-            {viewCount > 0 && (
-              <span className="text-[10px] font-mono text-zinc-700">
-                · {viewCount.toLocaleString()} {viewCount === 1 ? 'view' : 'views'}
-              </span>
-            )}
-            {totalReactions > 0 && (
-              <span className="text-[10px] font-mono text-zinc-700">
-                · {totalReactions} {totalReactions === 1 ? 'signal' : 'signals'}
-              </span>
-            )}
-          </div>
-          {idea ? (
-            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-50 leading-tight">{idea}</h1>
-          ) : (
-            <h1 className="text-xl font-bold text-zinc-500">Session {sessionId.slice(0, 8)}</h1>
-          )}
+        {/* Header */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
+            {new Date(createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            {viewCount > 0 && ` · ${viewCount.toLocaleString()} ${viewCount === 1 ? 'view' : 'views'}`}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-50 leading-tight">
+            {idea ?? 'Vision Document'}
+          </h1>
         </div>
 
         {!hasContent ? (
-          <div className="border border-zinc-800/60 rounded-2xl p-10 text-center space-y-3">
+          <div className="py-16 text-center space-y-3">
             <p className="text-sm text-zinc-500">No vision yet.</p>
             <Link href={`/session/${sessionId}`} className="text-sm text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
               Continue the session →
@@ -261,165 +231,152 @@ export function ShareView({
           </div>
         ) : (
           <>
-            {/* ── Tabs ──────────────────────────────────────────────────── */}
+            {/* Tabs */}
             {parkingLot && (
-              <div className="flex items-center gap-1 border-b border-zinc-800/60">
+              <div className="flex gap-1 border-b border-zinc-900">
                 {(['vision', 'parking'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={[
-                      'px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                      'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
                       activeTab === tab
-                        ? tab === 'vision' ? 'text-zinc-100 border-zinc-100' : 'text-amber-400 border-amber-400'
-                        : 'text-zinc-500 border-transparent hover:text-zinc-300',
+                        ? tab === 'vision' ? 'text-white border-white' : 'text-amber-400 border-amber-400'
+                        : 'text-zinc-600 border-transparent hover:text-zinc-400',
                     ].join(' ')}
                   >
-                    {tab === 'vision' ? 'Vision Document' : 'Deferred Ideas'}
+                    {tab === 'vision' ? 'Vision' : 'Deferred Ideas'}
                   </button>
                 ))}
               </div>
             )}
 
-            {/* ── Document ──────────────────────────────────────────────── */}
-            {activeTab === 'vision' ? (
-              vision ? (
-                <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-2xl p-6 sm:p-8">
-                  <Prose variant="doc">{vision}</Prose>
-                </div>
+            {/* Document */}
+            <div>
+              {activeTab === 'vision' ? (
+                vision
+                  ? <Prose variant="doc">{vision}</Prose>
+                  : <p className="text-sm text-zinc-600">Vision not yet generated.</p>
               ) : (
-                <p className="text-sm text-zinc-600 py-4">Vision document not yet generated.</p>
-              )
-            ) : (
-              <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-2xl p-6 sm:p-8">
                 <Prose variant="doc">{parkingLot}</Prose>
-              </div>
-            )}
+              )}
+            </div>
 
             {activeTab === 'vision' && vision && (
               <>
-                {/* ── Reactions ─────────────────────────────────────────── */}
-                <div className="space-y-3">
-                  <p className="text-xs font-medium text-zinc-500">What&apos;s your take?</p>
-                  <div className="flex flex-wrap gap-2">
-                    {REACTIONS.map(({ type, label, icon }) => {
-                      const reacted = myReactions.includes(type)
-                      const count = counts[type]
-                      return (
-                        <button
-                          key={type}
-                          onClick={() => react(type)}
-                          className={[
-                            'inline-flex items-center gap-2 pl-3 pr-4 py-2 rounded-full text-sm font-medium border transition-all duration-150 active:scale-95',
-                            reacted
-                              ? 'bg-violet-600 border-violet-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.25)]'
-                              : 'bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 hover:bg-zinc-900',
-                          ].join(' ')}
-                        >
-                          {reacted ? (
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : (
-                            <span className="text-base leading-none">{icon}</span>
-                          )}
-                          <span>{label}</span>
-                          {count > 0 && (
-                            <span className={`text-xs font-mono ${reacted ? 'text-violet-200' : 'text-zinc-600'}`}>
-                              {count}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* ── Persona CTA ───────────────────────────────────────── */}
+                {/* Persona CTA */}
                 {persona && (
-                  <div className="border-t border-zinc-800/50 pt-6 space-y-2">
-                    <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">This vision is for</p>
-                    <p className="text-sm text-zinc-400 leading-relaxed">{persona}</p>
-                    <div className="flex items-center justify-between pt-1">
-                      <p className="text-xs text-zinc-600">Does this sound like you?</p>
-                      <Link
-                        href="/"
-                        className="text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
-                      >
-                        Start your own →
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Gallery toggle (owner only) ────────────────────────── */}
-                {isOwner && (
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs ${listed ? 'text-violet-400' : 'text-zinc-500'}`}>
-                        {listed ? 'Listed in public gallery' : 'Add to public gallery'}
-                      </span>
-                      {listed && (
-                        <Link href="/visions" className="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors">
-                          Browse →
-                        </Link>
-                      )}
-                    </div>
-                    <button
-                      onClick={toggleListed}
-                      disabled={listingLoading}
-                      className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0 ${listed ? 'bg-violet-600' : 'bg-zinc-700'} ${listingLoading ? 'opacity-50 cursor-wait' : ''}`}
-                      role="switch"
-                      aria-checked={listed}
+                  <div className="border-t border-zinc-900 pt-6 space-y-3">
+                    <p className="text-xs text-zinc-600 uppercase tracking-widest font-mono">This vision is built for</p>
+                    <p className="text-base text-zinc-300 leading-relaxed">{persona}</p>
+                    <Link
+                      href="/"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
                     >
-                      <span
-                        className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${listed ? 'translate-x-4' : 'translate-x-0.5'}`}
-                      />
-                    </button>
+                      Does this sound like you? Start your own →
+                    </Link>
                   </div>
                 )}
 
-                {/* ── Downloads ─────────────────────────────────────────── */}
-                <div className="flex items-center gap-4 text-xs text-zinc-600 pt-1">
-                  <span>Export:</span>
-                  {vision && (
-                    <button onClick={() => download('vision.md', vision)} className="hover:text-zinc-400 transition-colors">
-                      vision.md
-                    </button>
-                  )}
-                  {parkingLot && (
-                    <button onClick={() => download('parking_lot.md', parkingLot)} className="hover:text-zinc-400 transition-colors">
-                      parking_lot.md
-                    </button>
-                  )}
-                  {vision && parkingLot && (
-                    <button onClick={downloadAll} className="hover:text-zinc-400 transition-colors">
-                      all.md
-                    </button>
-                  )}
-                </div>
+                {/* Owner controls */}
+                {isOwner && (
+                  <div className="border-t border-zinc-900 pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${listed ? 'text-violet-400' : 'text-zinc-600'}`}>
+                        {listed ? 'Listed in public gallery' : 'Add to public gallery'}
+                        {listed && (
+                          <Link href="/visions" className="ml-2 text-zinc-600 hover:text-zinc-400 transition-colors">Browse →</Link>
+                        )}
+                      </span>
+                      <button
+                        onClick={toggleListed}
+                        disabled={listingLoading}
+                        className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0 ${listed ? 'bg-violet-600' : 'bg-zinc-800'} ${listingLoading ? 'opacity-50 cursor-wait' : ''}`}
+                        role="switch"
+                        aria-checked={listed}
+                      >
+                        <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${listed ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-zinc-700">
+                      <span>Export:</span>
+                      <button onClick={() => download('vision.md', vision)} className="hover:text-zinc-400 transition-colors">vision.md</button>
+                      {parkingLot && <button onClick={() => download('parking_lot.md', parkingLot)} className="hover:text-zinc-400 transition-colors">parking_lot.md</button>}
+                      {parkingLot && <button onClick={downloadAll} className="hover:text-zinc-400 transition-colors">all.md</button>}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </>
         )}
 
-        {/* ── Footer CTA ─────────────────────────────────────────────── */}
-        <div className="border-t border-zinc-800/40 pt-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-zinc-300">Build your own vision</p>
-            <p className="text-xs text-zinc-600 leading-relaxed">
-              60–90 minutes with Kora. Walk away with a one-page document you can act on today.
-            </p>
-          </div>
+        {/* Footer */}
+        <div className="border-t border-zinc-900 pt-8">
           <Link
             href="/"
-            className="w-full sm:w-auto shrink-0 inline-flex justify-center items-center gap-2 min-h-[44px] bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white font-semibold px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_28px_rgba(139,92,246,0.45)] text-sm"
+            className="block text-center py-3 px-6 rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white font-semibold text-sm transition-all shadow-[0_0_24px_rgba(139,92,246,0.3)] hover:shadow-[0_0_32px_rgba(139,92,246,0.45)]"
           >
-            Start a session →
+            Build your own vision with Kora →
           </Link>
         </div>
 
+      </main>
+
+      {/* ── Sticky bottom action bar ─────────────────────────────────── */}
+      <div
+        className="fixed bottom-0 inset-x-0 z-20 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-900"
+        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+      >
+        <div className="max-w-2xl mx-auto px-5 pt-3 flex items-center justify-between">
+
+          {/* Reaction pills */}
+          <div className="flex items-center gap-1.5">
+            {REACTIONS.map(({ type, emoji, label }) => {
+              const reacted = myReactions.includes(type)
+              const count = counts[type]
+              return (
+                <button
+                  key={type}
+                  onClick={() => react(type)}
+                  title={label}
+                  className={[
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 active:scale-95',
+                    reacted
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
+                  ].join(' ')}
+                >
+                  <span className="text-sm leading-none">{emoji}</span>
+                  {count > 0 && <span className={reacted ? 'text-violet-200' : 'text-zinc-600'}>{count}</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Share actions */}
+          <div className="flex items-center gap-2">
+            {wedge && (
+              <button
+                onClick={shareOnX}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-all active:scale-95"
+              >
+                <XIcon size={12} />
+                <span>Share</span>
+              </button>
+            )}
+            <button
+              onClick={copyLink}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-all active:scale-95"
+            >
+              <LinkIcon />
+              <span>{copied ? 'Copied!' : 'Copy'}</span>
+            </button>
+          </div>
+
+        </div>
       </div>
-    </main>
+
+    </div>
   )
 }
