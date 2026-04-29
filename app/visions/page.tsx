@@ -27,9 +27,9 @@ const REACT_KEY = 'kora_reactions'
 const BATCH = 6
 
 const REACTIONS: { type: keyof ReactionCounts; icon: string; label: string }[] = [
-  { type: 'user', icon: '👤', label: 'I'm this user' },
-  { type: 'investor', icon: '💰', label: 'I'd fund this' },
-  { type: 'builder', icon: '🔨', label: 'I'd build this' },
+  { type: 'user', icon: '👤', label: "I'm this user" },
+  { type: 'investor', icon: '💰', label: "I'd fund this" },
+  { type: 'builder', icon: '🔨', label: "I'd build this" },
 ]
 
 function getViewedSessions(): string[] {
