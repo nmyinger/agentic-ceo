@@ -372,8 +372,11 @@ export function ChatView({
   const [copied, setCopied] = useState(false)
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
+  const [peerCount, setPeerCount] = useState(0)
   const [showIdleHint, setShowIdleHint] = useState(false)
   const [parkingBadgePulse, setParkingBadgePulse] = useState(false)
+  const peerIdRef = useRef(Math.random().toString(36).slice(2))
+  const peerLastSeenRef = useRef<Map<string, number>>(new Map())
   // Feature 5: Return Visitor Greeting — shown briefly when returning to an existing session
   const isReturn = typeof window !== 'undefined'
     && loadSessions().some((s) => s.id === sessionId)
@@ -507,12 +510,39 @@ export function ChatView({
           peerTypingTimerRef.current = setTimeout(() => setPeerInput(''), 3000)
         }
       })
+      // Feature 8: Peer Presence Heartbeat — track other viewers via 30s pings
+      .on('broadcast', { event: 'presence' }, ({ payload }) => {
+        const id = (payload as { id: string }).id
+        if (id && id !== peerIdRef.current) {
+          peerLastSeenRef.current.set(id, Date.now())
+        }
+      })
       .subscribe()
 
     typingChannelRef.current = typingChannel
 
+    // Send own heartbeat every 30s
+    const heartbeatInterval = setInterval(() => {
+      typingChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'presence',
+        payload: { id: peerIdRef.current },
+      }).catch(() => {})
+    }, 30_000)
+
+    // Sweep stale peers every 15s (timeout = 45s)
+    const sweepInterval = setInterval(() => {
+      const cutoff = Date.now() - 45_000
+      for (const [id, ts] of peerLastSeenRef.current) {
+        if (ts < cutoff) peerLastSeenRef.current.delete(id)
+      }
+      setPeerCount(peerLastSeenRef.current.size)
+    }, 15_000)
+
     return () => {
       if (peerTypingTimerRef.current) clearTimeout(peerTypingTimerRef.current)
+      clearInterval(heartbeatInterval)
+      clearInterval(sweepInterval)
       sb.removeChannel(dbChannel)
       sb.removeChannel(typingChannel)
     }
@@ -836,6 +866,11 @@ export function ChatView({
           >
             {newSessionLoading ? 'Starting…' : 'New session'}
           </button>
+          {peerCount > 0 && (
+            <span className="text-xs font-mono text-zinc-700 hidden sm:block">
+              {peerCount} other viewer{peerCount > 1 ? 's' : ''}
+            </span>
+          )}
           <span className="text-xs font-mono text-zinc-700 hidden sm:block">{sessionId.slice(0, 8)}</span>
         </div>
       </header>
