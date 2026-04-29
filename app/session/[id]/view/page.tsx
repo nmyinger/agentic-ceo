@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { supabaseServer } from '@/lib/supabase'
 import { ShareView } from './share-view'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { parseWedge } from '@/lib/utils'
 
 export async function generateMetadata(
@@ -31,6 +31,17 @@ export async function generateMetadata(
 export default async function ViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const sb = supabaseServer()
+
+  // Redirect to journey page if this session has a journey_id
+  const { data: sessionMeta } = await sb
+    .from('sessions')
+    .select('journey_id')
+    .eq('id', id)
+    .single()
+
+  if (sessionMeta?.journey_id) {
+    redirect(`/journey/${sessionMeta.journey_id}`)
+  }
 
   const [{ data: session }, { data: artifacts }] = await Promise.all([
     sb.from('sessions').select('id, idea, created_at, view_count').eq('id', id).single(),

@@ -8,7 +8,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
 
   const { data: session } = await sb
     .from('sessions')
-    .select('id, status, gate, parent_session_id')
+    .select('id, status, gate, parent_session_id, journey_id')
     .eq('id', id)
     .single()
   if (!session) notFound()
@@ -32,6 +32,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
 
   const gate = (session.gate as number | null) ?? 1
   const parentSessionId = (session.parent_session_id as string | null) ?? null
+  const journeyId = (session.journey_id as string | null) ?? null
 
   // For Gate 2, populate the vision display from the parent session's locked vision
   // (Gate 2 never emits its own vision artifact)
@@ -51,6 +52,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   return (
     <ChatView
       sessionId={id}
+      journeyId={journeyId}
       gate={gate}
       parentSessionId={parentSessionId}
       initialMessages={initialMessages}

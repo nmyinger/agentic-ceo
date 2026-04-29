@@ -387,6 +387,7 @@ function VisionProgress({ content, messageCount }: { content: string; messageCou
 
 export function ChatView({
   sessionId,
+  journeyId,
   gate,
   parentSessionId: _parentSessionId,
   initialMessages,
@@ -397,6 +398,7 @@ export function ChatView({
   initialStatus,
 }: {
   sessionId: string
+  journeyId?: string | null
   gate: number
   parentSessionId: string | null
   initialMessages: DbMessage[]
@@ -464,16 +466,29 @@ export function ChatView({
     setNewSessionLoading(true)
     try {
       const nextGate = gate + 1
-      const body: Record<string, unknown> = { gate: nextGate }
-      if (nextGate > 1) body.parent_session_id = sessionId
-      const res = await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const { id } = await res.json()
-      saveSession(id)
-      router.push(`/session/${id}`)
+      if (journeyId) {
+        // Create new gate session linked to existing journey
+        const body = { gate: nextGate, journey_id: journeyId, parent_session_id: sessionId }
+        const res = await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const { id } = await res.json()
+        saveSession(id)
+        router.push(`/journey/${journeyId}/gate/${nextGate}`)
+      } else {
+        const body: Record<string, unknown> = { gate: nextGate }
+        if (nextGate > 1) body.parent_session_id = sessionId
+        const res = await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const { id } = await res.json()
+        saveSession(id)
+        router.push(`/session/${id}`)
+      }
     } catch {
       setNewSessionLoading(false)
     }
@@ -1058,10 +1073,28 @@ export function ChatView({
           >
             Kora
           </Link>
-          <span className="text-zinc-800 hidden sm:block">|</span>
-          <span className="text-xs font-mono text-zinc-600 hidden sm:block">
-            {gate === 2 ? 'Gate 2 — Pattern Confirmation' : 'Gate 1 — Vision Architect'}
-          </span>
+          {journeyId ? (
+            <>
+              <span className="text-zinc-800 hidden sm:block">|</span>
+              <Link
+                href={`/journey/${journeyId}`}
+                className="text-xs font-mono text-zinc-600 hidden sm:block hover:text-zinc-400 transition-colors"
+              >
+                Journey
+              </Link>
+              <span className="text-zinc-800 hidden sm:block">/</span>
+              <span className="text-xs font-mono text-zinc-500 hidden sm:block">
+                Gate {gate}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-zinc-800 hidden sm:block">|</span>
+              <span className="text-xs font-mono text-zinc-600 hidden sm:block">
+                {gate === 2 ? 'Gate 2 — Pattern Confirmation' : 'Gate 1 — Vision Architect'}
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mobile: Vision shortcut button */}
@@ -1105,18 +1138,20 @@ export function ChatView({
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           <Link
-            href={`/session/${sessionId}/view`}
+            href={journeyId ? `/journey/${journeyId}` : `/session/${sessionId}/view`}
             className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
-            Share ↗
+            {journeyId ? 'Journey ↗' : 'Share ↗'}
           </Link>
-          <button
-            onClick={startNewSession}
-            disabled={newSessionLoading}
-            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {newSessionLoading ? 'Starting…' : 'New session'}
-          </button>
+          {!journeyId && (
+            <button
+              onClick={startNewSession}
+              disabled={newSessionLoading}
+              className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {newSessionLoading ? 'Starting…' : 'New session'}
+            </button>
+          )}
           {peerCount > 0 && (
             <span className="text-xs font-mono text-zinc-700 hidden sm:block">
               {peerCount} other viewer{peerCount > 1 ? 's' : ''}
@@ -1320,24 +1355,32 @@ export function ChatView({
           >
             {isCompleted ? (
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     <span className="text-xs text-emerald-400 font-mono">
-                      {gate === 2
-                        ? 'Gate 2 complete. Pattern confirmed. Gate 3 — Business Model — is next.'
-                        : 'Gate 1 complete. Start a new session for Gate 2.'}
+                      Gate {gate} complete.{gate < 5 ? ` Gate ${gate + 1} is next.` : ' All gates complete.'}
                     </span>
                   </div>
-                  {gate < 5 && (
-                    <button
-                      onClick={startNewSession}
-                      disabled={newSessionLoading}
-                      className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
-                    >
-                      {newSessionLoading ? 'Starting…' : gate === 2 ? 'Begin Gate 3 →' : 'New session →'}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {journeyId && (
+                      <Link
+                        href={`/journey/${journeyId}`}
+                        className="text-xs text-violet-400 border border-violet-800/50 rounded-md px-3 min-h-[40px] flex items-center hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20 transition-colors"
+                      >
+                        View journey →
+                      </Link>
+                    )}
+                    {gate < 5 && (
+                      <button
+                        onClick={startNewSession}
+                        disabled={newSessionLoading}
+                        className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                      >
+                        {newSessionLoading ? 'Starting…' : `Begin Gate ${gate + 1} →`}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {/* Feature 9: Parking Lot on Completion */}
                 {parkedCount > 0 && (
