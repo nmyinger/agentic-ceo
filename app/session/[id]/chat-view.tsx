@@ -936,27 +936,37 @@ export function ChatView({
               </div>
             )}
 
-            {visibleMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
-                    <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
-                  </div>
-                )}
+            {visibleMessages.map((message, idx) => {
+              const isStreamingThis =
+                status === 'streaming' &&
+                message.role === 'assistant' &&
+                idx === visibleMessages.length - 1
+              return (
                 <div
-                  className={`max-w-[76%] space-y-1.5 ${
-                    message.role === 'user'
-                      ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
-                      : 'text-zinc-200'
-                  }`}
+                  key={message.id}
+                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {renderMessage(message)}
+                  {message.role === 'assistant' && (
+                    <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+                      <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[76%] space-y-1.5 ${
+                      message.role === 'user'
+                        ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
+                        : 'text-zinc-200'
+                    }`}
+                  >
+                    {renderMessage(message)}
+                    {/* Micro 1: streaming cursor */}
+                    {isStreamingThis && (
+                      <span className="inline-block w-px h-3.5 bg-zinc-400 animate-pulse align-middle ml-0.5" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {/* Layer 2: live stream visible to passive viewers while active user's response streams */}
             {!isLoading && liveStreamContent && (
@@ -966,11 +976,8 @@ export function ChatView({
                 </div>
                 <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
                   <Prose>{liveStreamContent}</Prose>
-                  <div className="flex items-center gap-1 pt-0.5">
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:300ms]" />
-                  </div>
+                  {/* Micro 1: streaming cursor for passive viewer */}
+                  <span className="inline-block w-px h-3.5 bg-zinc-400 animate-pulse align-middle ml-0.5" />
                 </div>
               </div>
             )}
