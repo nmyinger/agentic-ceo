@@ -103,6 +103,7 @@ export function ShareView({
   const [listed, setListed] = useState(initialListed)
   const [listingLoading, setListingLoading] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
+  const [bubble, setBubble] = useState<{ type: keyof ReactionCounts; id: number } | null>(null)
 
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
@@ -142,6 +143,7 @@ export function ShareView({
 
   async function react(type: keyof ReactionCounts) {
     if (myReactions.includes(type)) {
+      // Unreact — trust server count as source of truth
       removeLocalReaction(sessionId, type)
       setMyReactions((prev) => prev.filter((t) => t !== type))
       setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
@@ -156,18 +158,25 @@ export function ShareView({
       } catch {}
       return
     }
+    // React — optimistic update is the source of truth; server just persists
     saveLocalReaction(sessionId, type)
     setMyReactions((prev) => [...prev, type])
     setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
+    const bubbleId = Date.now()
+    setBubble({ type, id: bubbleId })
+    setTimeout(() => setBubble((b) => (b?.id === bubbleId ? null : b)), 1100)
     try {
-      const res = await fetch(`/api/session/${sessionId}/react`, {
+      await fetch(`/api/session/${sessionId}/react`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),
       })
-      const { counts: updated } = await res.json()
-      if (updated) setCounts(updated)
-    } catch {}
+    } catch {
+      // Revert optimistic update on network error
+      removeLocalReaction(sessionId, type)
+      setMyReactions((prev) => prev.filter((t) => t !== type))
+      setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
+    }
   }
 
   async function toggleListed() {
@@ -336,20 +345,29 @@ export function ShareView({
               const reacted = myReactions.includes(type)
               const count = counts[type]
               return (
-                <button
-                  key={type}
-                  onClick={() => react(type)}
-                  title={label}
-                  className={[
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 active:scale-95',
-                    reacted
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
-                  ].join(' ')}
-                >
-                  <span className="text-sm leading-none">{emoji}</span>
-                  {count > 0 && <span className={reacted ? 'text-violet-200' : 'text-zinc-600'}>{count}</span>}
-                </button>
+                <div key={type} className="relative">
+                  {bubble?.type === type && (
+                    <div
+                      key={bubble.id}
+                      className="absolute bottom-full left-1/2 mb-3 px-3 py-1.5 bg-white text-zinc-900 rounded-full text-xs font-semibold whitespace-nowrap shadow-lg animate-reaction-bubble"
+                    >
+                      {label}!
+                    </div>
+                  )}
+                  <button
+                    onClick={() => react(type)}
+                    title={label}
+                    className={[
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 active:scale-95',
+                      reacted
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
+                    ].join(' ')}
+                  >
+                    <span className="text-sm leading-none">{emoji}</span>
+                    {count > 0 && <span className={reacted ? 'text-violet-200' : 'text-zinc-600'}>{count}</span>}
+                  </button>
+                </div>
               )
             })}
           </div>
