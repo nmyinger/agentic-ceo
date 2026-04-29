@@ -267,6 +267,13 @@ body.sheet-open {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Active-state scale — native press feel on all buttons and links */
+button:not(:disabled):active,
+a[href]:active {
+  transform: scale(0.97);
+  transition-duration: 75ms;
+}
+
 /* Prevent iOS from scaling text on orientation change */
 body {
   -webkit-text-size-adjust: 100%;
