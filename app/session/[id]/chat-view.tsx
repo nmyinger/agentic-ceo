@@ -1024,7 +1024,7 @@ export function ChatView({
           >
             {/* Drag handle */}
             <div className="shrink-0 flex justify-center pt-3 pb-1 no-callout">
-              <div className="w-9 h-1 rounded-full bg-zinc-700" />
+              <div className="animate-handle-hello h-1 rounded-full bg-zinc-600" />
             </div>
             {/* Tab row */}
             <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-1 pb-0">
