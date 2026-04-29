@@ -893,7 +893,13 @@ export function ChatView({
               {peerCount} other viewer{peerCount > 1 ? 's' : ''}
             </span>
           )}
-          <span className="text-xs font-mono text-zinc-700 hidden sm:block">{sessionId.slice(0, 8)}</span>
+          <button
+            onClick={copyUrl}
+            className="hidden sm:block text-xs font-mono text-zinc-700 hover:text-violet-400 transition-colors duration-150"
+            title="Copy share link"
+          >
+            {copied ? <span className="text-violet-400">copied</span> : sessionId.slice(0, 8)}
+          </button>
         </div>
       </header>
 
