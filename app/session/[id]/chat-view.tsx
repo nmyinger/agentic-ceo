@@ -6,7 +6,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type TextUIPart } from 'ai'
 import { useState, useEffect, useRef } from 'react'
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
-import { saveSession } from '@/lib/sessions'
+import { saveSession, loadSessions } from '@/lib/sessions'
 import { Prose } from '@/components/prose'
 
 const TRIGGER = '<<begin>>'
@@ -203,11 +203,47 @@ function parseVisionDocument(markdown: string) {
   return { title, sections }
 }
 
-function VisionProgress({ content }: { content: string }) {
+const PROGRESS_PHRASES = [
+  'Listening…',
+  'Working on it…',
+  'Building the picture…',
+  'Narrowing in…',
+  'Almost there…',
+]
+
+function VisionProgress({ content, messageCount }: { content: string; messageCount: number }) {
   const { title, sections } = parseVisionDocument(content)
   const completedCount = sections.filter((s) => s.complete).length
   const nextIdx = sections.findIndex((s) => !s.complete)
   const hasStarted = content.length > 0
+  const progressPhrase = PROGRESS_PHRASES[Math.min(Math.floor(messageCount / 4), PROGRESS_PHRASES.length - 1)]
+
+  // Feature 2: Vision Velocity Pulse — briefly animate newly-completed section dots
+  const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set())
+  const prevCompletedRef = useRef<Set<string>>(new Set())
+  const completedKeys = sections.filter((s) => s.complete).map((s) => s.key).join(',')
+
+  useEffect(() => {
+    const nowCompleted = new Set(sections.filter((s) => s.complete).map((s) => s.key))
+    const newlyCompleted = [...nowCompleted].filter((key) => !prevCompletedRef.current.has(key))
+    if (newlyCompleted.length > 0) {
+      setRecentlyCompleted((prev) => {
+        const next = new Set(prev)
+        newlyCompleted.forEach((key) => next.add(key))
+        return next
+      })
+      newlyCompleted.forEach((key) => {
+        setTimeout(() => {
+          setRecentlyCompleted((prev) => {
+            const next = new Set(prev)
+            next.delete(key)
+            return next
+          })
+        }, 8000)
+      })
+    }
+    prevCompletedRef.current = nowCompleted
+  }, [completedKeys]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-5">
@@ -232,7 +268,7 @@ function VisionProgress({ content }: { content: string }) {
                 s.complete
                   ? 'bg-emerald-500'
                   : i === nextIdx && hasStarted
-                  ? 'bg-violet-500/50 animate-pulse'
+                  ? 'animate-shimmer'
                   : 'bg-zinc-800',
               ].join(' ')}
             />
@@ -268,13 +304,18 @@ function VisionProgress({ content }: { content: string }) {
               {/* Section row */}
               <div className="flex items-center gap-2.5 py-2">
                 {/* Status dot */}
-                <div className="shrink-0 w-4 h-4 flex items-center justify-center">
+                <div className="shrink-0 w-4 h-4 flex items-center justify-center relative">
                   {s.complete ? (
-                    <span className="w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                        <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
+                    <>
+                      {recentlyCompleted.has(s.key) && (
+                        <span className="absolute inset-0 rounded-full bg-emerald-400/25 animate-ping" />
+                      )}
+                      <span className="relative z-10 w-4 h-4 rounded-full bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center">
+                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                          <path d="M1 3L3 5L7 1" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </span>
+                    </>
                   ) : isNext ? (
                     <span className="w-4 h-4 rounded-full border-2 border-violet-500/70 bg-violet-950/40 animate-pulse" />
                   ) : (
@@ -293,8 +334,9 @@ function VisionProgress({ content }: { content: string }) {
               </div>
 
               {/* Full draft content — always visible when available */}
+              {/* Feature 4: Wedge Sentence Spotlight — violet accent on the wedge, emerald on others */}
               {s.complete && s.content && (
-                <div className="ml-[26px] mb-3 pl-3 border-l-2 border-emerald-900/50 [&_p]:text-xs [&_p]:text-zinc-300 [&_p]:leading-relaxed [&_p]:mb-1 [&_strong]:text-zinc-200">
+                <div className={`ml-[26px] mb-3 pl-3 border-l-2 [&_p]:text-xs [&_p]:text-zinc-300 [&_p]:leading-relaxed [&_p]:mb-1 [&_strong]:text-zinc-200 ${s.key === 'wedge' ? 'border-violet-600/60' : 'border-emerald-900/50'}`}>
                   <Prose>{s.content}</Prose>
                 </div>
               )}
@@ -302,7 +344,7 @@ function VisionProgress({ content }: { content: string }) {
               {/* Active section placeholder */}
               {isNext && (
                 <div className="ml-[26px] mb-3 pl-3 border-l-2 border-violet-900/40">
-                  <p className="text-[11px] text-violet-800 italic">In progress…</p>
+                  <p className="text-[11px] text-violet-800 italic transition-all duration-500">{progressPhrase}</p>
                 </div>
               )}
             </div>
@@ -329,21 +371,42 @@ export function ChatView({
   initialStatus: string
 }) {
   const router = useRouter()
-  const [input, setInput] = useState('')
+  const draftKey = `kora-draft-${sessionId}`
+  // Feature 10: Draft Continuity Cursor — restore unfinished draft from sessionStorage
+  const [input, setInput] = useState(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem(draftKey) ?? '') : ''
+  )
   const [vision, setVision] = useState(initialVision)
   const [parkingLot, setParkingLot] = useState(initialParkingLot)
   const [actions, setActions] = useState(initialActions)
   const [activeTab, setActiveTab] = useState<Tab>('actions')
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
+  const [closingSheet, setClosingSheet] = useState(false)
   const [newSessionLoading, setNewSessionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [liveStreamContent, setLiveStreamContent] = useState<string | null>(null)
   const [peerInput, setPeerInput] = useState('')
+  const [peerCount, setPeerCount] = useState(0)
+  const [showIdleHint, setShowIdleHint] = useState(false)
+  const [parkingBadgePulse, setParkingBadgePulse] = useState(false)
+  const peerIdRef = useRef(Math.random().toString(36).slice(2))
+  const peerLastSeenRef = useRef<Map<string, number>>(new Map())
+  const prevMessageCountRef = useRef(0)
+  const [latestMessageId, setLatestMessageId] = useState<string | null>(null)
+  // Feature 5: Return Visitor Greeting — shown briefly when returning to an existing session
+  const isReturn = typeof window !== 'undefined'
+    && loadSessions().some((s) => s.id === sessionId)
+    && initialMessages.length > 0
+    && initialVision !== ''
+  const [showReturnGreet, setShowReturnGreet] = useState(isReturn)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevents realtime INSERT from duplicating the active sender's assistant reply (useChat already owns it)
+  const waitingForResponseRef = useRef(false)
 
   const { messages, setMessages, sendMessage, status } = useChat({
     id: sessionId,
@@ -370,6 +433,14 @@ export function ChatView({
     setShowMobileArtifacts(true)
   }
 
+  function closeSheet() {
+    setClosingSheet(true)
+    setTimeout(() => {
+      setShowMobileArtifacts(false)
+      setClosingSheet(false)
+    }, 260)
+  }
+
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setCopied(true)
@@ -385,6 +456,19 @@ export function ChatView({
     ].filter(Boolean)
     if (parts.length) download('kora-session.md', parts.join(''))
   }
+
+  // Derived values — must be declared before useEffects that reference them
+  const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
+  const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
+  const visionProgress = vision.length > 0
+    ? Math.round((parseVisionDocument(vision).sections.filter((s) => s.complete).length / 6) * 100)
+    : 0
+  const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
+  const isCompleted =
+    initialStatus === 'completed' ||
+    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
+  // Feature 7: Wedge Recitation Hint — changes placeholder when all 6 sections are complete
+  const allSectionsComplete = vision.length > 0 && parseVisionDocument(vision).sections.every((s) => s.complete)
 
   useEffect(() => {
     saveSession(sessionId)
@@ -422,7 +506,12 @@ export function ChatView({
         (payload) => {
           const row = payload.new as { id: string; role: 'user' | 'assistant'; content: string }
           setMessages((prev) => {
-            // Skip if this client already has the message (active user's optimistic state)
+            // If this client sent the message, useChat already owns it — skip the realtime echo
+            if (row.role === 'assistant' && waitingForResponseRef.current) {
+              waitingForResponseRef.current = false
+              return prev
+            }
+            // Skip if this client already has the message (text-based dedup for user messages)
             if (prev.some((m) => getTextContent(m) === row.content && m.role === row.role)) return prev
             return [...prev, { id: row.id, role: row.role, parts: [{ type: 'text' as const, text: row.content }] }]
           })
@@ -455,12 +544,39 @@ export function ChatView({
           peerTypingTimerRef.current = setTimeout(() => setPeerInput(''), 3000)
         }
       })
+      // Feature 8: Peer Presence Heartbeat — track other viewers via 30s pings
+      .on('broadcast', { event: 'presence' }, ({ payload }) => {
+        const id = (payload as { id: string }).id
+        if (id && id !== peerIdRef.current) {
+          peerLastSeenRef.current.set(id, Date.now())
+        }
+      })
       .subscribe()
 
     typingChannelRef.current = typingChannel
 
+    // Send own heartbeat every 30s
+    const heartbeatInterval = setInterval(() => {
+      typingChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'presence',
+        payload: { id: peerIdRef.current },
+      }).catch(() => {})
+    }, 30_000)
+
+    // Sweep stale peers every 15s (timeout = 45s)
+    const sweepInterval = setInterval(() => {
+      const cutoff = Date.now() - 45_000
+      for (const [id, ts] of peerLastSeenRef.current) {
+        if (ts < cutoff) peerLastSeenRef.current.delete(id)
+      }
+      setPeerCount(peerLastSeenRef.current.size)
+    }, 15_000)
+
     return () => {
       if (peerTypingTimerRef.current) clearTimeout(peerTypingTimerRef.current)
+      clearInterval(heartbeatInterval)
+      clearInterval(sweepInterval)
       sb.removeChannel(dbChannel)
       sb.removeChannel(typingChannel)
     }
@@ -481,16 +597,79 @@ export function ChatView({
     if (!isLoading) textareaRef.current?.focus()
   }, [isLoading])
 
-  const parkedCount = parkingLot ? countParkingItems(parkingLot) : 0
-  const actionProgress = actions ? countCompletedActions(actions) : { done: 0, total: 0 }
-  const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
-  const isCompleted =
-    initialStatus === 'completed' ||
-    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
+  // Feature 5: auto-dismiss return greeting
+  useEffect(() => {
+    if (!isReturn) return
+    const t = setTimeout(() => setShowReturnGreet(false), 2000)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Feature 3: Silence Timer — show a calm nudge after 90s of inactivity
+  useEffect(() => {
+    if (isLoading || isCompleted) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      setShowIdleHint(false)
+      return
+    }
+    idleTimerRef.current = setTimeout(() => setShowIdleHint(true), 90_000)
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    }
+  }, [isLoading, isCompleted])
+
+  // Micro 3: Message slide-fade — animate only the newest incoming message
+  useEffect(() => {
+    if (visibleMessages.length > prevMessageCountRef.current) {
+      const newest = visibleMessages[visibleMessages.length - 1]
+      if (newest) {
+        setLatestMessageId(newest.id)
+        const t = setTimeout(() => setLatestMessageId(null), 400)
+        prevMessageCountRef.current = visibleMessages.length
+        return () => clearTimeout(t)
+      }
+    }
+    prevMessageCountRef.current = visibleMessages.length
+  }, [visibleMessages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lock body scroll when bottom sheet is open (prevents iOS bounce on backdrop)
+  useEffect(() => {
+    document.body.classList.toggle('sheet-open', showMobileArtifacts)
+    return () => document.body.classList.remove('sheet-open')
+  }, [showMobileArtifacts])
+
+  // Feature 6: Deferred Badge Pulse — flash amber when parkedCount increases
+  const prevParkedRef = useRef(parkedCount)
+  useEffect(() => {
+    if (parkedCount > prevParkedRef.current) {
+      setParkingBadgePulse(true)
+      const t = setTimeout(() => setParkingBadgePulse(false), 2000)
+      prevParkedRef.current = parkedCount
+      return () => clearTimeout(t)
+    }
+    prevParkedRef.current = parkedCount
+  }, [parkedCount])
+
+  // Feature 1: Live Tab Title
+  useEffect(() => {
+    const { title } = parseVisionDocument(vision)
+    if (isLoading) {
+      document.title = 'Kora is thinking…'
+    } else if (isCompleted && title) {
+      document.title = `${title} — Kora`
+    } else if (title) {
+      document.title = `${title} — Kora`
+    } else {
+      document.title = 'Kora — Vision Architect'
+    }
+    return () => { document.title = 'Kora — Vision Architect' }
+  }, [vision, isLoading, isCompleted])
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value
     setInput(text)
+    sessionStorage.setItem(draftKey, text)
+    if (showIdleHint) setShowIdleHint(false)
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     typingChannelRef.current?.send({
       type: 'broadcast',
       event: 'typing',
@@ -503,61 +682,68 @@ export function ChatView({
     const text = input.trim()
     if (!text || isLoading) return
     setInput('')
+    sessionStorage.removeItem(draftKey)
+    setShowIdleHint(false)
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     // Clear peer typing display immediately on send
     typingChannelRef.current?.send({
       type: 'broadcast',
       event: 'typing',
       payload: { text: '' },
     }).catch(() => {})
+    waitingForResponseRef.current = true
     sendMessage({ text })
     textareaRef.current?.focus()
   }
 
   function renderMessage(msg: UIMessage) {
-    return msg.parts.map((part, i) => {
+    const textParts: TextUIPart[] = []
+    const sideTools: { type: string; input?: Record<string, unknown> }[] = []
+    let completePart: { wedge_sentence?: string } | null = null
+
+    for (const part of msg.parts) {
       if (part.type === 'text') {
-        const text = (part as TextUIPart).text
-        return text ? <div key={i}><Prose>{text}</Prose></div> : null
+        textParts.push(part as TextUIPart)
+      } else if (part.type === 'tool-mark_complete') {
+        completePart = ((part as { type: string; input?: { wedge_sentence?: string } }).input) ?? {}
+      } else {
+        sideTools.push(part as { type: string; input?: Record<string, unknown> })
       }
-      if (part.type === 'tool-emit_actions') {
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-            <span className="text-xs font-mono text-sky-400">Action plan updated</span>
+    }
+
+    return (
+      <>
+        {textParts.map((p, i) => p.text ? <div key={i}><Prose>{p.text}</Prose></div> : null)}
+        {sideTools.length > 0 && (
+          <div className="flex flex-wrap gap-x-4 mt-2 opacity-40">
+            {sideTools.map((part, i) => {
+              if (part.type === 'tool-emit_actions') {
+                return <span key={i} className="text-[10px] font-mono text-sky-400 tracking-wide">↻ actions</span>
+              }
+              if (part.type === 'tool-emit_vision') {
+                return <span key={i} className="text-[10px] font-mono text-emerald-400 tracking-wide">↻ vision</span>
+              }
+              if (part.type === 'tool-park_idea') {
+                const idea = (part.input as { idea?: string } | undefined)?.idea
+                return <span key={i} className="text-[10px] font-mono text-amber-400 tracking-wide">⊞{idea ? ` ${idea}` : ' parked'}</span>
+              }
+              return null
+            })}
           </div>
-        )
-      }
-      if (part.type === 'tool-emit_vision') {
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <span className="text-xs font-mono text-emerald-500">Vision document updated</span>
-          </div>
-        )
-      }
-      if (part.type === 'tool-park_idea') {
-        const idea = (part as { type: string; input?: { idea?: string } }).input?.idea
-        return (
-          <div key={i} className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-            <span className="text-xs font-mono text-amber-500">Deferred: {idea}</span>
-          </div>
-        )
-      }
-      if (part.type === 'tool-mark_complete') {
-        const wedge = (part as { type: string; input?: { wedge_sentence?: string } }).input?.wedge_sentence
-        return (
-          <div key={i} className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1">
+        )}
+        {completePart !== null && (
+          <div className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1 animate-in fade-in-0 duration-500">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
               <span className="text-xs font-mono text-emerald-400 font-semibold">Gate 1 complete</span>
             </div>
-            {wedge && <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{wedge}&rdquo;</p>}
+            {completePart.wedge_sentence && (
+              <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{completePart.wedge_sentence}&rdquo;</p>
+            )}
           </div>
-        )
-      }
-      return null
-    })
+        )}
+      </>
+    )
   }
 
   // ─── Tab button helpers ───────────────────────────────────────────────────
@@ -590,7 +776,7 @@ export function ChatView({
   // ─── Shared artifact content renderer ────────────────────────────────────
   function renderTabContent() {
     if (activeTab === 'vision') {
-      return <VisionProgress content={vision} />
+      return <VisionProgress content={vision} messageCount={visibleMessages.length} />
     }
 
     if (activeTab === 'actions') {
@@ -693,54 +879,86 @@ export function ChatView({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex flex-col h-[100dvh] bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="shrink-0 border-b border-zinc-800/60 px-6 py-3.5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md">
-        <div className="flex items-center gap-4">
+      <header
+        className="relative shrink-0 border-b border-zinc-800/60 px-4 sm:px-6 pb-3.5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-md"
+        style={{ paddingTop: 'max(14px, calc(14px + var(--safe-top)))' }}
+      >
+        <div className="flex items-center gap-3 sm:gap-4">
           <Link
             href="/"
             className="text-sm font-semibold tracking-widest text-zinc-200 uppercase hover:text-white transition-colors"
           >
             Kora
           </Link>
-          <span className="text-zinc-800">|</span>
+          <span className="text-zinc-800 hidden sm:block">|</span>
           <span className="text-xs font-mono text-zinc-600 hidden sm:block">Gate 1 — Vision Architect</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Mobile: Vision shortcut button */}
+          <button
+            onClick={() => openMobileArtifacts('vision')}
+            className="lg:hidden min-h-[36px] flex items-center gap-1.5 text-xs text-violet-400/70 border border-violet-800/30 rounded-md px-3 py-2 hover:border-violet-600/50 hover:text-violet-300 transition-all"
+          >
+            Vision
+            {visionProgress > 0 && (
+              <span className={`w-1.5 h-1.5 rounded-full ${allSectionsComplete ? 'bg-emerald-500' : 'bg-violet-700'}`} />
+            )}
+          </button>
+          {/* Mobile: Actions shortcut */}
           <button
             onClick={() => openMobileArtifacts('actions')}
-            className="lg:hidden text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-sky-800/50 hover:text-sky-300 transition-all"
+            className="lg:hidden min-h-[36px] flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 hover:border-sky-800/50 hover:text-sky-300 transition-all"
           >
             Actions
           </button>
           {parkedCount > 0 && (
             <button
               onClick={() => openMobileArtifacts('parking')}
-              className="flex items-center gap-1.5 text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-2.5 py-1 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
+              className="flex items-center gap-1.5 min-h-[36px] text-xs text-amber-400/80 border border-amber-400/20 rounded-md px-3 py-2 hover:border-amber-400/40 hover:text-amber-400 transition-colors"
             >
               {parkedCount} deferred
             </button>
           )}
           <button
             onClick={copyUrl}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all font-mono"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all font-mono"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
           <Link
             href={`/session/${sessionId}/view`}
-            className="hidden sm:block text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all"
           >
             Share ↗
           </Link>
           <button
             onClick={startNewSession}
             disabled={newSessionLoading}
-            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-2.5 py-1 hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="hidden sm:flex items-center text-xs text-zinc-500 border border-zinc-800/70 rounded-md px-3 py-2 min-h-[36px] hover:border-violet-800/50 hover:text-violet-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {newSessionLoading ? 'Starting…' : 'New session'}
           </button>
-          <span className="text-xs font-mono text-zinc-700 hidden sm:block">{sessionId.slice(0, 8)}</span>
+          {peerCount > 0 && (
+            <span className="text-xs font-mono text-zinc-700 hidden sm:block">
+              {peerCount} other viewer{peerCount > 1 ? 's' : ''}
+            </span>
+          )}
+          <button
+            onClick={copyUrl}
+            className="hidden sm:block text-xs font-mono text-zinc-700 hover:text-violet-400 transition-colors duration-150"
+            title="Copy share link"
+          >
+            {copied ? <span className="text-violet-400">copied</span> : sessionId.slice(0, 8)}
+          </button>
+        </div>
+        {/* Mobile vision progress bar — thin indicator at bottom of header */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-800/40 lg:hidden">
+          <div
+            className="h-full bg-violet-500/60 transition-all duration-700"
+            style={{ width: `${visionProgress}%` }}
+          />
         </div>
       </header>
 
@@ -752,30 +970,64 @@ export function ChatView({
         </div>
       )}
 
-      {/* Mobile artifacts overlay */}
+      {/* Mobile artifacts — bottom sheet */}
       {showMobileArtifacts && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800/60">
-            <div className="flex items-center gap-1">
-              <button onClick={() => setActiveTab('vision')} className={mobileTabClass('vision', 'violet')}>
+        <div
+          className="lg:hidden fixed inset-0 z-50"
+          onClick={closeSheet}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in-0 duration-200" />
+          {/* Sheet */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 flex flex-col bg-zinc-900 border-t border-zinc-800/60 rounded-t-2xl ${closingSheet ? 'animate-sheet-down' : 'animate-sheet-up'}`}
+            style={{ maxHeight: '88dvh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="shrink-0 flex justify-center pt-3 pb-1 no-callout">
+              <div className="w-9 h-1 rounded-full bg-zinc-700" />
+            </div>
+            {/* Tab row */}
+            <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-1 pb-0">
+              <button
+                onClick={() => setActiveTab('vision')}
+                className={`${mobileTabClass('vision', 'violet')} min-h-[44px] inline-flex items-center gap-1.5`}
+              >
                 Vision
+                {vision.length > 0 && (
+                  <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+                )}
               </button>
-              <button onClick={() => setActiveTab('actions')} className={mobileTabClass('actions', 'sky')}>
+              <button
+                onClick={() => setActiveTab('actions')}
+                className={`${mobileTabClass('actions', 'sky')} min-h-[44px]`}
+              >
                 Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
               </button>
-              <button onClick={() => setActiveTab('parking')} className={mobileTabClass('parking', 'amber')}>
-                Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              <button
+                onClick={() => setActiveTab('parking')}
+                className={`${mobileTabClass('parking', 'amber')} min-h-[44px]`}
+              >
+                Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : null}
+              </button>
+              <button
+                onClick={closeSheet}
+                className="ml-auto min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                aria-label="Close"
+              >
+                ✕
               </button>
             </div>
-            <button
-              onClick={() => setShowMobileArtifacts(false)}
-              className="text-zinc-500 hover:text-zinc-300 transition-colors text-sm px-2 py-1"
-            >
-              ✕ Close
-            </button>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 overscroll-contain" data-scroll>
+              {renderTabContent()}
+            </div>
+            {/* Export footer + home indicator clearance */}
+            <div className="shrink-0 pb-safe-sheet">
+              {renderExportFooter(true)}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-5">{renderTabContent()}</div>
-          {renderExportFooter(true)}
         </div>
       )}
 
@@ -783,7 +1035,15 @@ export function ChatView({
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
+            {/* Feature 5: Return Visitor Greeting */}
+            {showReturnGreet && (
+              <p className="text-xs font-mono text-zinc-600">
+                Resuming — {initialMessages.filter((m) => m.role === 'user').length} exchanges,{' '}
+                {parseVisionDocument(initialVision).sections.filter((s) => s.complete).length} sections complete.
+              </p>
+            )}
+
             {visibleMessages.length === 0 && (
               <div className="flex items-center gap-2 text-zinc-600 text-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 animate-pulse" />
@@ -791,48 +1051,56 @@ export function ChatView({
               </div>
             )}
 
-            {visibleMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
-                    <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
-                  </div>
-                )}
+            {visibleMessages.map((message, idx) => {
+              const isStreamingThis =
+                status === 'streaming' &&
+                message.role === 'assistant' &&
+                idx === visibleMessages.length - 1
+              return (
                 <div
-                  className={`max-w-[76%] space-y-1.5 ${
-                    message.role === 'user'
-                      ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
-                      : 'text-zinc-200'
-                  }`}
+                  key={message.id}
+                  data-message
+                  className={`flex gap-3 sm:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : ''}`}
                 >
-                  {renderMessage(message)}
+                  {message.role === 'assistant' && (
+                    <div className={`shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors duration-300 ${isStreamingThis ? 'border-violet-500 bg-violet-900/60' : 'border-violet-700/50 bg-violet-950/50'}`}>
+                      <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[88%] sm:max-w-[76%] space-y-1.5 ${
+                      message.role === 'user'
+                        ? 'bg-zinc-900/80 border border-zinc-800/60 text-zinc-100 rounded-xl px-4 py-3'
+                        : 'text-zinc-200'
+                    }`}
+                  >
+                    {renderMessage(message)}
+                    {/* Micro 1: streaming cursor */}
+                    {isStreamingThis && (
+                      <span className="inline-block w-px h-3.5 bg-zinc-400 animate-pulse align-middle ml-0.5" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {/* Layer 2: live stream visible to passive viewers while active user's response streams */}
             {!isLoading && liveStreamContent && (
-              <div className="flex gap-4">
-                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+              <div className="flex gap-3 sm:gap-4">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
-                <div className="text-zinc-200 space-y-1.5 max-w-[76%]">
+                <div className="text-zinc-200 space-y-1.5 max-w-[88%] sm:max-w-[76%]">
                   <Prose>{liveStreamContent}</Prose>
-                  <div className="flex items-center gap-1 pt-0.5">
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:300ms]" />
-                  </div>
+                  {/* Micro 1: streaming cursor for passive viewer */}
+                  <span className="inline-block w-px h-3.5 bg-zinc-400 animate-pulse align-middle ml-0.5" />
                 </div>
               </div>
             )}
 
             {isLoading && (
-              <div className="flex gap-4">
-                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-700/50 bg-violet-950/50 flex items-center justify-center">
+              <div className="flex gap-3 sm:gap-4">
+                <div className="shrink-0 mt-0.5 w-5 h-5 rounded border border-violet-500 bg-violet-900/60 flex items-center justify-center transition-colors duration-300">
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="flex items-center gap-1 pt-1.5">
@@ -846,20 +1114,34 @@ export function ChatView({
           </div>
 
           {/* Input */}
-          <div className="shrink-0 border-t border-zinc-800/60 p-4">
+          <div
+            className="shrink-0 border-t border-zinc-800/60 px-4 pt-4"
+            style={{ paddingBottom: 'max(16px, calc(16px + var(--safe-bottom)))' }}
+          >
             {isCompleted ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+                  </div>
+                  <button
+                    onClick={startNewSession}
+                    disabled={newSessionLoading}
+                    className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  >
+                    {newSessionLoading ? 'Starting…' : 'New session →'}
+                  </button>
                 </div>
-                <button
-                  onClick={startNewSession}
-                  disabled={newSessionLoading}
-                  className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 py-1.5 hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
-                >
-                  {newSessionLoading ? 'Starting…' : 'New session →'}
-                </button>
+                {/* Feature 9: Parking Lot on Completion */}
+                {parkedCount > 0 && (
+                  <button
+                    onClick={() => setActiveTab('parking')}
+                    className="text-xs font-mono text-amber-600/80 hover:text-amber-500 transition-colors ml-4"
+                  >
+                    {parkedCount} idea{parkedCount > 1 ? 's' : ''} deferred — none lost.
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -881,21 +1163,32 @@ export function ChatView({
                         handleSubmit(e as unknown as React.FormEvent)
                       }
                     }}
-                    autoFocus
-                    placeholder="Type your response..."
+                    placeholder={allSectionsComplete ? 'State your wedge sentence without reading it.' : 'Type your response...'}
                     rows={1}
                     disabled={isLoading}
-                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-all min-h-[48px] max-h-40 overflow-y-auto"
+                    inputMode="text"
+                    enterKeyHint="send"
+                    autoComplete="off"
+                    autoCorrect="on"
+                    spellCheck={true}
+                    className="flex-1 bg-zinc-900/80 border border-zinc-800/70 rounded-lg px-4 py-3 text-[16px] sm:text-sm text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none focus:border-violet-600/50 focus:shadow-[0_0_12px_rgba(139,92,246,0.12)] disabled:opacity-50 transition-[height,border-color,box-shadow] duration-100 min-h-[48px] max-h-40 overflow-y-auto"
                   />
                   <button
                     type="submit"
                     disabled={isLoading || !input.trim()}
-                    className="px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
+                    className="min-h-[48px] min-w-[64px] px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
                   >
                     Send
                   </button>
                 </form>
-                <p className="text-[11px] text-zinc-700 mt-2 ml-0.5">Shift+Enter for a new line</p>
+                {visibleMessages.length < 20 && (
+                  <p className={`hidden sm:block text-[11px] mt-2 ml-0.5 transition-colors duration-1000 ${visibleMessages.length >= 8 ? 'text-zinc-800' : 'text-zinc-700'}`}>
+                    Shift+Enter for a new line
+                  </p>
+                )}
+                {showIdleHint && (
+                  <p className="text-[11px] text-zinc-700 mt-0.5 ml-0.5">Still here. Take your time.</p>
+                )}
               </>
             )}
           </div>
@@ -905,14 +1198,17 @@ export function ChatView({
         <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800/60">
           {/* Tabs */}
           <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-3">
-            <button onClick={() => setActiveTab('vision')} className={tabClass('vision', 'violet')}>
+            <button onClick={() => setActiveTab('vision')} className={`${tabClass('vision', 'violet')} inline-flex items-center gap-1.5`}>
               Vision
+              {vision.length > 0 && (
+                <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+              )}
             </button>
             <button onClick={() => setActiveTab('actions')} className={tabClass('actions', 'sky')}>
               Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
             </button>
             <button onClick={() => setActiveTab('parking')} className={tabClass('parking', 'amber')}>
-              Deferred{parkedCount > 0 ? ` (${parkedCount})` : ''}
+              Deferred{parkedCount > 0 ? <span className={parkingBadgePulse ? 'animate-pulse text-amber-300' : ''}> ({parkedCount})</span> : ''}
             </button>
           </div>
 

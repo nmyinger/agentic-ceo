@@ -178,6 +178,24 @@ body::before {
   scrollbar-color: rgb(63 63 70 / 0.5) transparent;
 }
 
+/* Shimmer animation for active vision progress bar segment */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.35) 0%,
+    rgba(139, 92, 246, 0.55) 40%,
+    rgba(167, 139, 250, 0.8) 50%,
+    rgba(139, 92, 246, 0.55) 60%,
+    rgba(139, 92, 246, 0.35) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
 /* Hero heading gradient */
 .text-gradient-hero {
   background: linear-gradient(
@@ -188,4 +206,100 @@ body::before {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ─── Mobile Elite Upgrades ─────────────────────────────────────────────── */
+
+/* Safe-area custom properties — fall back to 0 on non-notched devices */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+}
+
+/* Header top padding that accounts for Dynamic Island / notch */
+.pt-safe-header {
+  padding-top: max(14px, calc(14px + var(--safe-top)));
+}
+
+/* Horizontal padding accounting for landscape safe areas */
+.px-safe-nav {
+  padding-left:  max(16px, calc(16px + var(--safe-left)));
+  padding-right: max(16px, calc(16px + var(--safe-right)));
+}
+
+/* Input area bottom padding — clears the home indicator */
+.pb-safe-input {
+  padding-bottom: max(16px, calc(16px + var(--safe-bottom)));
+}
+
+/* Bottom sheet bottom padding */
+.pb-safe-sheet {
+  padding-bottom: max(12px, calc(12px + var(--safe-bottom)));
+}
+
+/* Prevent body scroll when bottom sheet is open */
+body.sheet-open {
+  overflow: hidden;
+}
+
+/* Prevent iOS callout / selection on non-text UI chrome */
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* iOS momentum scrolling for scrollable containers */
+[data-scroll] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* CSS containment — reduces repaint during streaming in chat */
+[data-message] {
+  contain: layout style;
+}
+
+/* Remove default iOS blue tap flash on all interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent iOS from scaling text on orientation change */
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Bottom sheet slide-up / slide-down animations */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes sheet-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform;
+}
+.animate-sheet-down {
+  animation: sheet-down 0.26s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform;
+}
+
+/* Respect prefers-reduced-motion for all custom animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-up,
+  .animate-sheet-down {
+    animation-duration: 0.01ms !important;
+  }
+  .animate-shimmer {
+    animation: none;
+    background: rgba(139, 92, 246, 0.35);
+    background-size: unset;
+  }
 }
