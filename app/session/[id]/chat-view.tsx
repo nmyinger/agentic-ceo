@@ -916,8 +916,11 @@ export function ChatView({
         <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950 flex flex-col">
           <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-zinc-800/60">
             <div className="flex items-center gap-1">
-              <button onClick={() => setActiveTab('vision')} className={mobileTabClass('vision', 'violet')}>
+              <button onClick={() => setActiveTab('vision')} className={`${mobileTabClass('vision', 'violet')} inline-flex items-center gap-1.5`}>
                 Vision
+                {vision.length > 0 && (
+                  <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+                )}
               </button>
               <button onClick={() => setActiveTab('actions')} className={mobileTabClass('actions', 'sky')}>
                 Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
@@ -1097,8 +1100,11 @@ export function ChatView({
         <aside className="hidden lg:flex flex-col w-[400px] border-l border-zinc-800/60">
           {/* Tabs */}
           <div className="shrink-0 flex items-center gap-1 border-b border-zinc-800/60 px-4 pt-3">
-            <button onClick={() => setActiveTab('vision')} className={tabClass('vision', 'violet')}>
+            <button onClick={() => setActiveTab('vision')} className={`${tabClass('vision', 'violet')} inline-flex items-center gap-1.5`}>
               Vision
+              {vision.length > 0 && (
+                <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+              )}
             </button>
             <button onClick={() => setActiveTab('actions')} className={tabClass('actions', 'sky')}>
               Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
