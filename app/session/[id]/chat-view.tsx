@@ -426,11 +426,7 @@ export function ChatView({
   async function startNewSession() {
     setNewSessionLoading(true)
     try {
-      const res = await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gate: 2, parentSessionId: sessionId }),
-      })
+      const res = await fetch('/api/session', { method: 'POST' })
       const { id } = await res.json()
       router.push(`/session/${id}`)
     } catch {
