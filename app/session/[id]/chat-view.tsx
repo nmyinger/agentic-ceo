@@ -588,16 +588,20 @@ export function ChatView({
   }, [sessionId])
 
   useEffect(() => {
-    if (!showScrollPill) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading, showScrollPill])
+    const chat = chatScrollRef.current
+    if (!chat) return
+    const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80
+    if (nearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading])
 
-  // Show scroll-to-bottom pill when bottomRef leaves the viewport
+  // Show scroll-to-bottom pill when bottomRef leaves the chat container's visible area
   useEffect(() => {
     const el = bottomRef.current
-    if (!el) return
+    const root = chatScrollRef.current
+    if (!el || !root) return
     const observer = new IntersectionObserver(
       ([entry]) => setShowScrollPill(!entry.isIntersecting),
-      { threshold: 0 }
+      { root, threshold: 0 }
     )
     observer.observe(el)
     return () => observer.disconnect()
@@ -608,6 +612,11 @@ export function ChatView({
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
+    // Keep chat anchored to bottom while typing so textarea growth doesn't un-pin the user
+    const chat = chatScrollRef.current
+    if (chat && chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100) {
+      chat.scrollTop = chat.scrollHeight
+    }
   }, [input])
 
   useEffect(() => {
@@ -1073,7 +1082,7 @@ export function ChatView({
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
         <div className="relative flex flex-col flex-1 min-w-0">
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
             {/* Feature 5: Return Visitor Greeting */}
             {showReturnGreet && (
               <p className="text-xs font-mono text-zinc-600">
@@ -1155,14 +1164,10 @@ export function ChatView({
           {showScrollPill && (
             <div className="absolute bottom-[80px] left-1/2 -translate-x-1/2 z-10 pointer-events-none lg:hidden">
               <button
-                onClick={() => {
-                  setShowScrollPill(false)
-                  bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-                }}
-                className="pointer-events-auto flex items-center gap-1.5 bg-zinc-800/90 backdrop-blur-sm border border-zinc-700/60 text-zinc-300 text-xs font-mono px-3 py-1.5 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+                onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                className="pointer-events-auto flex items-center bg-zinc-800/90 backdrop-blur-sm border border-zinc-700/60 text-zinc-300 text-xs font-mono px-3 py-1.5 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
               >
-                <span>↓</span>
-                <span>new message</span>
+                ↓
               </button>
             </div>
           )}
