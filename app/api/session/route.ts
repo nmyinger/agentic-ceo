@@ -1,8 +1,15 @@
 import { supabaseServer } from '@/lib/supabase'
 
-export async function POST() {
+export async function POST(req: Request) {
   const sb = supabaseServer()
-  const { data, error } = await sb.from('sessions').insert({}).select('id').single()
+  const body = await req.json().catch(() => ({}))
+  const gate = typeof body.gate === 'number' && body.gate > 0 ? body.gate : 1
+  const parentSessionId = typeof body.parent_session_id === 'string' && body.parent_session_id ? body.parent_session_id : null
+
+  const insertData: Record<string, unknown> = { gate }
+  if (parentSessionId) insertData.parent_session_id = parentSessionId
+
+  const { data, error } = await sb.from('sessions').insert(insertData).select('id').single()
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ id: data.id })
 }

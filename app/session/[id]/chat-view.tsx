@@ -11,7 +11,7 @@ import { Prose } from '@/components/prose'
 
 const TRIGGER = '<<begin>>'
 
-type Tab = 'vision' | 'actions' | 'parking'
+type Tab = 'vision' | 'actions' | 'parking' | 'interviews'
 type DbMessage = { id: string; role: 'user' | 'assistant'; content: string }
 
 function toUIMessages(dbMessages: DbMessage[]): UIMessage[] {
@@ -155,6 +155,36 @@ function DeferredList({ content }: { content: string }) {
             <p className="text-[10px] font-mono text-zinc-700">{item.date}</p>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function countInterviewsInLog(content: string): number {
+  return (content.match(/^## Interview \d+/gm) ?? []).length
+}
+
+function InterviewLog({ content }: { content: string }) {
+  const interviewCount = countInterviewsInLog(content)
+  const confirms = (content.match(/\*\*Signal:\*\* CONFIRMS/g) ?? []).length
+  const contradicts = (content.match(/\*\*Signal:\*\* CONTRADICTS/g) ?? []).length
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-teal-400/80 uppercase tracking-wider">Interview Log</span>
+        <span className="text-[11px] font-mono text-teal-400/80">{interviewCount} debriefed</span>
+      </div>
+      {interviewCount > 0 && (
+        <div className="flex gap-4">
+          <span className="text-[11px] font-mono text-emerald-500">{confirms} confirm</span>
+          {contradicts > 0 && (
+            <span className="text-[11px] font-mono text-red-400">{contradicts} contradict</span>
+          )}
+        </div>
+      )}
+      <div className="space-y-1">
+        <Prose>{content}</Prose>
       </div>
     </div>
   )
@@ -357,17 +387,23 @@ function VisionProgress({ content, messageCount }: { content: string; messageCou
 
 export function ChatView({
   sessionId,
+  gate,
+  parentSessionId: _parentSessionId,
   initialMessages,
   initialVision,
   initialParkingLot,
   initialActions,
+  initialInterviews,
   initialStatus,
 }: {
   sessionId: string
+  gate: number
+  parentSessionId: string | null
   initialMessages: DbMessage[]
   initialVision: string
   initialParkingLot: string
   initialActions: string
+  initialInterviews: string
   initialStatus: string
 }) {
   const router = useRouter()
@@ -379,6 +415,7 @@ export function ChatView({
   const [vision, setVision] = useState(initialVision)
   const [parkingLot, setParkingLot] = useState(initialParkingLot)
   const [actions, setActions] = useState(initialActions)
+  const [interviews, setInterviews] = useState(initialInterviews)
   const [activeTab, setActiveTab] = useState<Tab>('actions')
   const [showMobileArtifacts, setShowMobileArtifacts] = useState(false)
   const [closingSheet, setClosingSheet] = useState(false)
@@ -426,8 +463,16 @@ export function ChatView({
   async function startNewSession() {
     setNewSessionLoading(true)
     try {
-      const res = await fetch('/api/session', { method: 'POST' })
+      const nextGate = gate + 1
+      const body: Record<string, unknown> = { gate: nextGate }
+      if (nextGate > 1) body.parent_session_id = sessionId
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       const { id } = await res.json()
+      saveSession(id)
       router.push(`/session/${id}`)
     } catch {
       setNewSessionLoading(false)
@@ -458,6 +503,7 @@ export function ChatView({
     const parts = [
       actions && `${actions}`,
       vision && `\n---\n\n# Vision Document\n\n${vision}`,
+      gate === 2 && interviews && `\n---\n\n${interviews}`,
       parkingLot && `\n---\n\n${parkingLot}`,
     ].filter(Boolean)
     if (parts.length) download('kora-session.md', parts.join(''))
@@ -472,7 +518,9 @@ export function ChatView({
   const visibleMessages = messages.filter((m) => !getTextContent(m).startsWith('<<'))
   const isCompleted =
     initialStatus === 'completed' ||
-    messages.some((m) => m.parts.some((p) => p.type === 'tool-mark_complete'))
+    messages.some((m) =>
+      m.parts.some((p) => p.type === 'tool-mark_complete' || p.type === 'tool-mark_gate2_complete')
+    )
   // Feature 7: Wedge Recitation Hint — changes placeholder when all 6 sections are complete
   const allSectionsComplete = vision.length > 0 && parseVisionDocument(vision).sections.every((s) => s.complete)
 
@@ -504,6 +552,7 @@ export function ChatView({
           if (row.type === 'vision') setVision(row.content)
           if (row.type === 'parking_lot') setParkingLot(row.content)
           if (row.type === 'actions') setActions(row.content)
+          if (row.type === 'interviews') setInterviews(row.content)
         }
       )
       .on(
@@ -708,19 +757,19 @@ export function ChatView({
   }, [parkedCount])
 
   // Feature 1: Live Tab Title
+  const gateDefaultTitle = gate === 2 ? 'Kora — Pattern Confirmation' : 'Kora — Vision Architect'
+
   useEffect(() => {
     const { title } = parseVisionDocument(vision)
     if (isLoading) {
       document.title = 'Kora is thinking…'
-    } else if (isCompleted && title) {
-      document.title = `${title} — Kora`
     } else if (title) {
       document.title = `${title} — Kora`
     } else {
-      document.title = 'Kora — Vision Architect'
+      document.title = gateDefaultTitle
     }
-    return () => { document.title = 'Kora — Vision Architect' }
-  }, [vision, isLoading, isCompleted])
+    return () => { document.title = gateDefaultTitle }
+  }, [vision, isLoading, isCompleted, gateDefaultTitle])
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value
@@ -758,13 +807,17 @@ export function ChatView({
   function renderMessage(msg: UIMessage) {
     const textParts: TextUIPart[] = []
     const sideTools: { type: string; input?: Record<string, unknown> }[] = []
-    let completePart: { wedge_sentence?: string } | null = null
+    let completePart: { wedge_sentence?: string; confirmed_pattern?: string } | null = null
+    let isGate2Complete = false
 
     for (const part of msg.parts) {
       if (part.type === 'text') {
         textParts.push(part as TextUIPart)
       } else if (part.type === 'tool-mark_complete') {
         completePart = ((part as { type: string; input?: { wedge_sentence?: string } }).input) ?? {}
+      } else if (part.type === 'tool-mark_gate2_complete') {
+        completePart = ((part as { type: string; input?: { confirmed_pattern?: string } }).input) ?? {}
+        isGate2Complete = true
       } else {
         sideTools.push(part as { type: string; input?: Record<string, unknown> })
       }
@@ -782,6 +835,9 @@ export function ChatView({
               if (part.type === 'tool-emit_vision') {
                 return <span key={i} className="text-[10px] font-mono text-emerald-400 tracking-wide">↻ vision</span>
               }
+              if (part.type === 'tool-emit_interviews') {
+                return <span key={i} className="text-[10px] font-mono text-teal-400 tracking-wide">↻ interviews</span>
+              }
               if (part.type === 'tool-park_idea') {
                 const idea = (part.input as { idea?: string } | undefined)?.idea
                 return <span key={i} className="text-[10px] font-mono text-amber-400 tracking-wide">⊞{idea ? ` ${idea}` : ' parked'}</span>
@@ -794,9 +850,14 @@ export function ChatView({
           <div className="mt-2 border border-emerald-800/40 bg-emerald-950/30 rounded-lg px-4 py-3 space-y-1 animate-in fade-in-0 duration-500">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span className="text-xs font-mono text-emerald-400 font-semibold">Gate 1 complete</span>
+              <span className="text-xs font-mono text-emerald-400 font-semibold">
+                {isGate2Complete ? 'Gate 2 complete' : 'Gate 1 complete'}
+              </span>
             </div>
-            {completePart.wedge_sentence && (
+            {isGate2Complete && completePart.confirmed_pattern && (
+              <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{completePart.confirmed_pattern}&rdquo;</p>
+            )}
+            {!isGate2Complete && completePart.wedge_sentence && (
               <p className="text-xs text-emerald-300/70 italic leading-relaxed">&ldquo;{completePart.wedge_sentence}&rdquo;</p>
             )}
           </div>
@@ -806,7 +867,7 @@ export function ChatView({
   }
 
   // ─── Tab button helpers ───────────────────────────────────────────────────
-  function tabClass(tab: Tab, color: 'violet' | 'sky' | 'amber') {
+  function tabClass(tab: Tab, color: 'violet' | 'sky' | 'amber' | 'teal') {
     const active = activeTab === tab
     const colors = {
       violet: active
@@ -818,16 +879,20 @@ export function ChatView({
       amber: active
         ? 'text-amber-400 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
         : 'text-zinc-500 hover:text-zinc-300',
+      teal: active
+        ? 'text-teal-300 bg-zinc-900/50 border border-zinc-700/60 border-b-transparent -mb-px'
+        : 'text-zinc-500 hover:text-zinc-300',
     }
     return `px-3 py-2 text-xs font-medium rounded-t transition-colors ${colors[color]}`
   }
 
-  function mobileTabClass(tab: Tab, color: 'violet' | 'sky' | 'amber') {
+  function mobileTabClass(tab: Tab, color: 'violet' | 'sky' | 'amber' | 'teal') {
     const active = activeTab === tab
     const colors = {
       violet: active ? 'text-violet-300' : 'text-zinc-500',
       sky: active ? 'text-sky-300' : 'text-zinc-500',
       amber: active ? 'text-amber-400' : 'text-zinc-500',
+      teal: active ? 'text-teal-300' : 'text-zinc-500',
     }
     return `px-3 py-2 text-xs font-medium rounded-t transition-colors ${colors[color]}`
   }
@@ -835,10 +900,47 @@ export function ChatView({
   // ─── Shared artifact content renderer ────────────────────────────────────
   function renderTabContent() {
     if (activeTab === 'vision') {
+      if (gate === 2) {
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-violet-400/80 uppercase tracking-wider">Gate 1 Vision — Locked</span>
+              <span className="text-[10px] font-mono text-emerald-600 border border-emerald-800/40 rounded-full px-2 py-0.5">complete</span>
+            </div>
+            {vision ? (
+              <Prose>{vision}</Prose>
+            ) : (
+              <p className="text-xs text-zinc-600">No vision loaded from Gate 1.</p>
+            )}
+          </div>
+        )
+      }
       return <VisionProgress content={vision} messageCount={visibleMessages.length} />
     }
 
+    if (activeTab === 'interviews') {
+      return interviews ? (
+        <InterviewLog content={interviews} />
+      ) : (
+        <div className="space-y-4 py-1">
+          <p className="text-xs font-semibold text-teal-400/70 uppercase tracking-wider">Interview Log</p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Kora will log each interview debrief here as you complete them — with signal classification.
+          </p>
+          <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2.5">
+            {['Interview 1 — debrief + signal', 'Interview 2 — debrief + signal', 'Pattern confirmed'].map((item) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-900/60 shrink-0" />
+                <span className="text-[11px] text-zinc-700">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     if (activeTab === 'actions') {
+      const exitLabel = gate === 2 ? 'Gate 2 Exit Checklist' : 'Gate 1 Exit Checklist'
       return actions ? (
         <ActionPlan content={actions} />
       ) : (
@@ -848,7 +950,7 @@ export function ChatView({
             Your action plan will appear here as the conversation starts — concrete steps you can take today.
           </p>
           <div className="border border-dashed border-zinc-800/80 rounded-lg p-4 space-y-2.5">
-            {['Do Now', 'Complete This Week', 'Gate 1 Exit Checklist'].map((item) => (
+            {['Do Now', 'Complete This Week', exitLabel].map((item) => (
               <div key={item} className="flex items-center gap-2.5">
                 <span className="w-3.5 h-3.5 rounded border border-sky-900/60 shrink-0" />
                 <span className="text-[11px] text-zinc-700">{item}</span>
@@ -883,7 +985,7 @@ export function ChatView({
 
   // ─── Shared export footer ─────────────────────────────────────────────────
   function renderExportFooter(mobile = false) {
-    const hasAny = vision || actions || parkingLot
+    const hasAny = vision || actions || parkingLot || interviews
     if (!hasAny) return null
     const btnClass = 'text-[11px] font-mono text-zinc-500 hover:text-zinc-200 border border-zinc-800/70 hover:border-zinc-700 rounded px-2.5 py-1 transition-colors'
 
@@ -901,12 +1003,17 @@ export function ChatView({
               vision.md
             </button>
           )}
+          {gate === 2 && interviews && (
+            <button onClick={() => download('interviews.md', interviews)} className={btnClass}>
+              interviews.md
+            </button>
+          )}
           {parkingLot && (
             <button onClick={() => download('parking_lot.md', parkingLot)} className={btnClass}>
               parking_lot.md
             </button>
           )}
-          {(actions || vision) && parkingLot && (
+          {(actions || vision || interviews) && parkingLot && (
             <button
               onClick={downloadAll}
               className="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-500 rounded px-2.5 py-1 transition-colors"
@@ -952,7 +1059,9 @@ export function ChatView({
             Kora
           </Link>
           <span className="text-zinc-800 hidden sm:block">|</span>
-          <span className="text-xs font-mono text-zinc-600 hidden sm:block">Gate 1 — Vision Architect</span>
+          <span className="text-xs font-mono text-zinc-600 hidden sm:block">
+            {gate === 2 ? 'Gate 2 — Pattern Confirmation' : 'Gate 1 — Vision Architect'}
+          </span>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mobile: Vision shortcut button */}
@@ -961,10 +1070,19 @@ export function ChatView({
             className="lg:hidden min-h-[36px] flex items-center gap-1.5 text-xs text-violet-400/70 border border-violet-800/30 rounded-md px-3 py-2 hover:border-violet-600/50 hover:text-violet-300 transition-all"
           >
             Vision
-            {visionProgress > 0 && (
-              <span className={`w-1.5 h-1.5 rounded-full ${allSectionsComplete ? 'bg-emerald-500' : 'bg-violet-700'}`} />
+            {(visionProgress > 0 || (gate === 2 && vision.length > 0)) && (
+              <span className={`w-1.5 h-1.5 rounded-full ${gate === 2 || allSectionsComplete ? 'bg-emerald-500' : 'bg-violet-700'}`} />
             )}
           </button>
+          {/* Mobile: Interviews shortcut (Gate 2 only) */}
+          {gate === 2 && (
+            <button
+              onClick={() => openMobileArtifacts('interviews')}
+              className="lg:hidden min-h-[36px] flex items-center text-xs text-teal-400/70 border border-teal-800/30 rounded-md px-3 py-2 hover:border-teal-600/50 hover:text-teal-300 transition-all"
+            >
+              Interviews
+            </button>
+          )}
           {/* Mobile: Actions shortcut */}
           <button
             onClick={() => openMobileArtifacts('actions')}
@@ -1055,9 +1173,17 @@ export function ChatView({
               >
                 Vision
                 {vision.length > 0 && (
-                  <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${gate === 2 || allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
                 )}
               </button>
+              {gate === 2 && (
+                <button
+                  onClick={() => setActiveTab('interviews')}
+                  className={`${mobileTabClass('interviews', 'teal')} min-h-[44px]`}
+                >
+                  Interviews{countInterviewsInLog(interviews) > 0 ? ` (${countInterviewsInLog(interviews)})` : ''}
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('actions')}
                 className={`${mobileTabClass('actions', 'sky')} min-h-[44px]`}
@@ -1197,15 +1323,21 @@ export function ChatView({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="text-xs text-emerald-400 font-mono">Gate 1 complete. Start a new session for Gate 2.</span>
+                    <span className="text-xs text-emerald-400 font-mono">
+                      {gate === 2
+                        ? 'Gate 2 complete. Pattern confirmed. Gate 3 — Business Model — is next.'
+                        : 'Gate 1 complete. Start a new session for Gate 2.'}
+                    </span>
                   </div>
-                  <button
-                    onClick={startNewSession}
-                    disabled={newSessionLoading}
-                    className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
-                  >
-                    {newSessionLoading ? 'Starting…' : 'New session →'}
-                  </button>
+                  {gate < 5 && (
+                    <button
+                      onClick={startNewSession}
+                      disabled={newSessionLoading}
+                      className="text-xs text-zinc-400 border border-zinc-700 rounded-md px-3 min-h-[40px] flex items-center hover:border-zinc-500 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                    >
+                      {newSessionLoading ? 'Starting…' : gate === 2 ? 'Begin Gate 3 →' : 'New session →'}
+                    </button>
+                  )}
                 </div>
                 {/* Feature 9: Parking Lot on Completion */}
                 {parkedCount > 0 && (
@@ -1237,7 +1369,11 @@ export function ChatView({
                         handleSubmit(e as unknown as React.FormEvent)
                       }
                     }}
-                    placeholder={allSectionsComplete ? 'State your wedge sentence without reading it.' : 'Type your response...'}
+                    placeholder={
+                      gate === 2
+                        ? (countInterviewsInLog(interviews) >= 2 ? 'Name the confirmed pattern in one sentence.' : 'Describe what happened in your last interview...')
+                        : (allSectionsComplete ? 'State your wedge sentence without reading it.' : 'Type your response...')
+                    }
                     rows={1}
                     disabled={isLoading}
                     inputMode="text"
@@ -1275,9 +1411,14 @@ export function ChatView({
             <button onClick={() => setActiveTab('vision')} className={`${tabClass('vision', 'violet')} inline-flex items-center gap-1.5`}>
               Vision
               {vision.length > 0 && (
-                <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${gate === 2 ? 'bg-emerald-500' : allSectionsComplete ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
               )}
             </button>
+            {gate === 2 && (
+              <button onClick={() => setActiveTab('interviews')} className={tabClass('interviews', 'teal')}>
+                Interviews{countInterviewsInLog(interviews) > 0 ? ` (${countInterviewsInLog(interviews)})` : ''}
+              </button>
+            )}
             <button onClick={() => setActiveTab('actions')} className={tabClass('actions', 'sky')}>
               Actions{actionProgress.total > 0 ? ` (${actionProgress.done}/${actionProgress.total})` : ''}
             </button>
