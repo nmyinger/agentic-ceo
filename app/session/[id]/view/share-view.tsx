@@ -109,22 +109,16 @@ export function ShareView({
     })
   }
 
-  async function shareOnX() {
+  function shareOnX() {
     const text = wedge
       ? `${idea ? idea + ': ' : ''}${wedge} — built with @KoraAI`
       : `Check out this vision built with @KoraAI`
     const pageUrl = window.location.href
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ text, url: pageUrl })
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`, '_blank', 'noopener,noreferrer')
-        }
-      }
-      return
-    }
-    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`, '_blank', 'noopener,noreferrer')
+    window.open(
+      `https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`,
+      '_blank',
+      'noopener,noreferrer',
+    )
   }
 
   async function react(type: keyof ReactionCounts) {
