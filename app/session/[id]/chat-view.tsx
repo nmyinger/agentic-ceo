@@ -400,6 +400,8 @@ export function ChatView({
     && initialVision !== ''
   const [showReturnGreet, setShowReturnGreet] = useState(isReturn)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const [showScrollPill, setShowScrollPill] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
@@ -583,8 +585,20 @@ export function ChatView({
   }, [sessionId])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+    if (!showScrollPill) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading, showScrollPill])
+
+  // Show scroll-to-bottom pill when bottomRef leaves the viewport
+  useEffect(() => {
+    const el = bottomRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowScrollPill(!entry.isIntersecting),
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -1035,7 +1049,7 @@ export function ChatView({
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="relative flex flex-col flex-1 min-w-0">
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
             {/* Feature 5: Return Visitor Greeting */}
             {showReturnGreet && (
@@ -1113,6 +1127,22 @@ export function ChatView({
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* Scroll-to-bottom pill */}
+          {showScrollPill && (
+            <div className="absolute bottom-[80px] left-1/2 -translate-x-1/2 z-10 pointer-events-none lg:hidden">
+              <button
+                onClick={() => {
+                  setShowScrollPill(false)
+                  bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="pointer-events-auto flex items-center gap-1.5 bg-zinc-800/90 backdrop-blur-sm border border-zinc-700/60 text-zinc-300 text-xs font-mono px-3 py-1.5 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+              >
+                <span>↓</span>
+                <span>new message</span>
+              </button>
+            </div>
+          )}
 
           {/* Input */}
           <div
