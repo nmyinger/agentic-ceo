@@ -362,7 +362,11 @@ export function ChatView({
   initialStatus: string
 }) {
   const router = useRouter()
-  const [input, setInput] = useState('')
+  const draftKey = `kora-draft-${sessionId}`
+  // Feature 10: Draft Continuity Cursor — restore unfinished draft from sessionStorage
+  const [input, setInput] = useState(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem(draftKey) ?? '') : ''
+  )
   const [vision, setVision] = useState(initialVision)
   const [parkingLot, setParkingLot] = useState(initialParkingLot)
   const [actions, setActions] = useState(initialActions)
@@ -613,6 +617,7 @@ export function ChatView({
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value
     setInput(text)
+    sessionStorage.setItem(draftKey, text)
     if (showIdleHint) setShowIdleHint(false)
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     typingChannelRef.current?.send({
@@ -627,6 +632,7 @@ export function ChatView({
     const text = input.trim()
     if (!text || isLoading) return
     setInput('')
+    sessionStorage.removeItem(draftKey)
     setShowIdleHint(false)
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     // Clear peer typing display immediately on send
