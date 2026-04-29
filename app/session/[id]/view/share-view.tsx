@@ -51,6 +51,14 @@ function saveLocalReaction(sessionId: string, type: string) {
   } catch {}
 }
 
+function removeLocalReaction(sessionId: string, type: string) {
+  try {
+    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
+    all[sessionId] = (all[sessionId] ?? []).filter((t) => t !== type)
+    localStorage.setItem(REACT_KEY, JSON.stringify(all))
+  } catch {}
+}
+
 type ReactionCounts = { user: number; investor: number; builder: number }
 
 const REACTIONS: { type: keyof ReactionCounts; label: string; icon: string }[] = [
@@ -127,7 +135,22 @@ export function ShareView({
   }
 
   async function react(type: keyof ReactionCounts) {
-    if (myReactions.includes(type)) return
+    if (myReactions.includes(type)) {
+      // Undo reaction
+      removeLocalReaction(sessionId, type)
+      setMyReactions((prev) => prev.filter((t) => t !== type))
+      setCounts((prev) => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))
+      try {
+        const res = await fetch(`/api/session/${sessionId}/react`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type }),
+        })
+        const { counts: updated } = await res.json()
+        if (updated) setCounts(updated)
+      } catch {}
+      return
+    }
     saveLocalReaction(sessionId, type)
     setMyReactions((prev) => [...prev, type])
     setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
@@ -286,12 +309,11 @@ export function ShareView({
                         <button
                           key={type}
                           onClick={() => react(type)}
-                          disabled={reacted}
                           className={[
-                            'inline-flex items-center gap-2 pl-3 pr-4 py-2 rounded-full text-sm font-medium border transition-all duration-150',
+                            'inline-flex items-center gap-2 pl-3 pr-4 py-2 rounded-full text-sm font-medium border transition-all duration-150 active:scale-95',
                             reacted
-                              ? 'bg-violet-600 border-violet-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.25)] cursor-default'
-                              : 'bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 hover:bg-zinc-900 active:scale-95',
+                              ? 'bg-violet-600 border-violet-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.25)]'
+                              : 'bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 hover:bg-zinc-900',
                           ].join(' ')}
                         >
                           {reacted ? (
@@ -313,102 +335,49 @@ export function ShareView({
                   </div>
                 </div>
 
-                {/* ── "I'm the user" ─────────────────────────────────────── */}
+                {/* ── Persona CTA ───────────────────────────────────────── */}
                 {persona && (
-                  <div className="relative overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-6">
-                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-violet-600/5 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                    <div className="relative space-y-4">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">This vision is for</p>
-                        <p className="text-sm text-zinc-300 leading-relaxed">{persona}</p>
-                      </div>
-                      <div className="h-px bg-zinc-800/60" />
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-zinc-500">Does this sound like you?</p>
-                        <Link
-                          href="/"
-                          className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors whitespace-nowrap"
-                        >
-                          Start your own →
-                        </Link>
-                      </div>
+                  <div className="border-t border-zinc-800/50 pt-6 space-y-2">
+                    <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">This vision is for</p>
+                    <p className="text-sm text-zinc-400 leading-relaxed">{persona}</p>
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-xs text-zinc-600">Does this sound like you?</p>
+                      <Link
+                        href="/"
+                        className="text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                      >
+                        Start your own →
+                      </Link>
                     </div>
                   </div>
                 )}
 
-                {/* ── Share + Gallery ────────────────────────────────────── */}
-                <div className="space-y-3">
-                  {/* Share row */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={shareOnX}
-                      className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 hover:bg-zinc-800 text-sm font-medium transition-all"
-                    >
-                      <XIcon />
-                      Share on X
-                    </button>
-                    <button
-                      onClick={copyLink}
-                      className="flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 hover:bg-zinc-800 text-sm font-medium transition-all"
-                    >
-                      {copied ? (
-                        <>
-                          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-                            <path d="M2 6.5l3 3 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Copied!
-                        </>
-                      ) : (
-                        'Copy link'
+                {/* ── Gallery toggle (owner only) ────────────────────────── */}
+                {isOwner && (
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs ${listed ? 'text-violet-400' : 'text-zinc-500'}`}>
+                        {listed ? 'Listed in public gallery' : 'Add to public gallery'}
+                      </span>
+                      {listed && (
+                        <Link href="/visions" className="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors">
+                          Browse →
+                        </Link>
                       )}
-                    </button>
-                  </div>
-
-                  {/* Gallery toggle — owner only */}
-                  {isOwner && (
+                    </div>
                     <button
                       onClick={toggleListed}
                       disabled={listingLoading}
-                      className={[
-                        'w-full flex items-center justify-between min-h-[52px] rounded-xl border px-4 transition-all',
-                        listed
-                          ? 'border-violet-800/50 bg-violet-950/30'
-                          : 'border-zinc-800/60 bg-zinc-900/30 hover:border-zinc-700',
-                        listingLoading ? 'opacity-50 cursor-wait' : '',
-                      ].join(' ')}
+                      className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0 ${listed ? 'bg-violet-600' : 'bg-zinc-700'} ${listingLoading ? 'opacity-50 cursor-wait' : ''}`}
+                      role="switch"
+                      aria-checked={listed}
                     >
-                      <div className="flex items-center gap-3 text-left">
-                        <span className={`text-sm font-medium ${listed ? 'text-violet-300' : 'text-zinc-300'}`}>
-                          {listed ? 'Listed in public gallery' : 'Add to public gallery'}
-                        </span>
-                        {listed && (
-                          <Link
-                            href="/visions"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] font-mono text-violet-500 hover:text-violet-300 transition-colors"
-                          >
-                            Browse →
-                          </Link>
-                        )}
-                      </div>
-                      <div
-                        className={[
-                          'relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 shrink-0',
-                          listed ? 'bg-violet-600' : 'bg-zinc-700',
-                        ].join(' ')}
-                        role="switch"
-                        aria-checked={listed}
-                      >
-                        <span
-                          className={[
-                            'inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200',
-                            listed ? 'translate-x-4' : 'translate-x-0.5',
-                          ].join(' ')}
-                        />
-                      </div>
+                      <span
+                        className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${listed ? 'translate-x-4' : 'translate-x-0.5'}`}
+                      />
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* ── Downloads ─────────────────────────────────────────── */}
                 <div className="flex items-center gap-4 text-xs text-zinc-600 pt-1">
