@@ -410,6 +410,7 @@ export function ChatView({
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollPillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Prevents realtime INSERT from duplicating the active sender's assistant reply (useChat already owns it)
   const waitingForResponseRef = useRef(false)
 
@@ -594,17 +595,28 @@ export function ChatView({
     if (nearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
-  // Show scroll-to-bottom pill when bottomRef leaves the chat container's visible area
+  // Show scroll-to-bottom pill when bottomRef leaves the chat container's visible area.
+  // Appearance is debounced so a brief scroll gesture doesn't flash the pill.
   useEffect(() => {
     const el = bottomRef.current
     const root = chatScrollRef.current
     if (!el || !root) return
     const observer = new IntersectionObserver(
-      ([entry]) => setShowScrollPill(!entry.isIntersecting),
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          scrollPillTimerRef.current = setTimeout(() => setShowScrollPill(true), 400)
+        } else {
+          if (scrollPillTimerRef.current) clearTimeout(scrollPillTimerRef.current)
+          setShowScrollPill(false)
+        }
+      },
       { root, threshold: 0 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (scrollPillTimerRef.current) clearTimeout(scrollPillTimerRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -1081,8 +1093,10 @@ export function ChatView({
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
-        <div className="relative flex flex-col flex-1 min-w-0">
-          <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
+        <div className="flex flex-col flex-1 min-w-0">
+          {/* Scroll area wrapper — pill is scoped here so it never overlaps the input */}
+          <div className="relative flex-1 min-h-0">
+          <div ref={chatScrollRef} className="h-full overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6 overscroll-contain" data-scroll>
             {/* Feature 5: Return Visitor Greeting */}
             {showReturnGreet && (
               <p className="text-xs font-mono text-zinc-600">
@@ -1160,9 +1174,9 @@ export function ChatView({
             <div ref={bottomRef} />
           </div>
 
-          {/* Scroll-to-bottom pill */}
+          {/* Scroll-to-bottom pill — pinned to bottom of scroll area, never overlaps input */}
           {showScrollPill && (
-            <div className="absolute bottom-[80px] left-1/2 -translate-x-1/2 z-10 pointer-events-none lg:hidden">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
               <button
                 onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
                 className="pointer-events-auto flex items-center bg-zinc-800/90 backdrop-blur-sm border border-zinc-700/60 text-zinc-300 text-xs font-mono px-3 py-1.5 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
@@ -1171,6 +1185,7 @@ export function ChatView({
               </button>
             </div>
           )}
+          </div>{/* end scroll area wrapper */}
 
           {/* Input */}
           <div
