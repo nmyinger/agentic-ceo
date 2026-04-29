@@ -1088,7 +1088,7 @@ export function ChatView({
                 <div
                   key={message.id}
                   data-message
-                  className={`flex gap-3 sm:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : ''}`}
+                  className={`flex gap-3 sm:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.id === latestMessageId ? (message.role === 'user' ? 'msg-enter-right' : 'msg-enter-left') : ''}`}
                 >
                   {message.role === 'assistant' && (
                     <div className={`shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors duration-300 ${isStreamingThis ? 'border-violet-500 bg-violet-900/60' : 'border-violet-700/50 bg-violet-950/50'}`}>
