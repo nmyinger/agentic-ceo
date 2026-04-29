@@ -2,8 +2,15 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, useCallback } from 'react'
-
-type ReactionCounts = { user: number; investor: number; builder: number }
+import {
+  REACTIONS,
+  ReactionCounts,
+  ReactionType,
+  getLocalReactions,
+  saveLocalReaction,
+  recordView,
+} from '@/lib/reactions'
+import { ReactionPill } from '@/components/reaction-pill'
 
 type FeedVision = {
   id: string
@@ -22,44 +29,7 @@ type PlatformStats = {
   killRate: number | null
 }
 
-const VIEW_KEY = 'kora_viewed_sessions'
-const REACT_KEY = 'kora_reactions'
 const BATCH = 6
-
-const REACTIONS: { type: keyof ReactionCounts; icon: string; label: string }[] = [
-  { type: 'user', icon: '👤', label: "I'm this user" },
-  { type: 'investor', icon: '💰', label: "I'd fund this" },
-  { type: 'builder', icon: '🔨', label: "I'd build this" },
-]
-
-function getViewedSessions(): string[] {
-  if (typeof window === 'undefined') return []
-  try { return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '[]') } catch { return [] }
-}
-
-function markViewed(id: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const viewed = getViewedSessions()
-    if (!viewed.includes(id)) {
-      localStorage.setItem(VIEW_KEY, JSON.stringify([...viewed, id]))
-    }
-  } catch {}
-}
-
-function getMyReactions(): Record<string, string[]> {
-  if (typeof window === 'undefined') return {}
-  try { return JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}') } catch { return {} }
-}
-
-function saveMyReaction(sessionId: string, type: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const all = getMyReactions()
-    all[sessionId] = [...(all[sessionId] ?? []), type]
-    localStorage.setItem(REACT_KEY, JSON.stringify(all))
-  } catch {}
-}
 
 // ─── Single vision card ───────────────────────────────────────────────────────
 
@@ -81,7 +51,7 @@ function VisionCard({
 
   // Load persisted reactions on mount
   useEffect(() => {
-    setMyReactions(getMyReactions()[vision.id] ?? [])
+    setMyReactions(getLocalReactions(vision.id))
   }, [vision.id])
 
   // Track view when card is ≥80% visible
@@ -101,12 +71,12 @@ function VisionCard({
     return () => observer.disconnect()
   }, [vision.id, onView])
 
-  async function react(type: keyof ReactionCounts) {
+  async function react(type: ReactionType) {
     if (myReactions.includes(type)) return
     // Optimistic update
     setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
     setMyReactions((prev) => [...prev, type])
-    saveMyReaction(vision.id, type)
+    saveLocalReaction(vision.id, type)
     await fetch(`/api/session/${vision.id}/react`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -177,26 +147,16 @@ function VisionCard({
         style={{ paddingBottom: 'max(20px, calc(20px + var(--safe-bottom)))', paddingTop: '14px' }}
       >
         <div className="flex items-center gap-1 flex-wrap">
-          {REACTIONS.map(({ type, icon, label }) => {
-            const reacted = myReactions.includes(type)
-            const count = counts[type]
-            return (
-              <button
-                key={type}
-                onClick={() => react(type)}
-                disabled={reacted}
-                title={label}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-mono transition-all min-h-[36px] ${
-                  reacted
-                    ? 'border-violet-700/60 bg-violet-950/40 text-violet-300 cursor-default'
-                    : 'border-zinc-800/70 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300 active:scale-95'
-                }`}
-              >
-                <span>{icon}</span>
-                {count > 0 && <span>{count}</span>}
-              </button>
-            )
-          })}
+          {REACTIONS.map(({ type, icon, label }) => (
+            <ReactionPill
+              key={type}
+              icon={icon}
+              label={label}
+              count={counts[type]}
+              reacted={myReactions.includes(type)}
+              onReact={() => react(type)}
+            />
+          ))}
 
           {/* Stats */}
           <div className="ml-auto flex items-center gap-3">
@@ -320,10 +280,9 @@ export default function VisionsPage() {
   }, [hasMore, loadingMore, loadMore])
 
   function handleView(id: string) {
-    const viewed = getViewedSessions()
-    if (viewed.includes(id)) return
-    markViewed(id)
-    fetch(`/api/session/${id}/view`, { method: 'POST' }).catch(() => {})
+    if (recordView(id)) {
+      fetch(`/api/session/${id}/view`, { method: 'POST' }).catch(() => {})
+    }
   }
 
   if (loading) {

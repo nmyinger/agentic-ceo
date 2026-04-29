@@ -5,6 +5,16 @@ import { useEffect, useState } from 'react'
 import { Prose } from '@/components/prose'
 import { parseWedge, parseUserPersona } from '@/lib/utils'
 import { loadSessions } from '@/lib/sessions'
+import {
+  REACTIONS,
+  ReactionCounts,
+  ReactionType,
+  getLocalReactions,
+  saveLocalReaction,
+  removeLocalReaction,
+  recordView,
+} from '@/lib/reactions'
+import { ReactionPill } from '@/components/reaction-pill'
 
 function download(filename: string, content: string) {
   const blob = new Blob([content], { type: 'text/markdown' })
@@ -33,48 +43,6 @@ function LinkIcon() {
   )
 }
 
-const VIEW_KEY = 'kora_viewed_sessions'
-const REACT_KEY = 'kora_reactions'
-
-function recordView(sessionId: string): boolean {
-  try {
-    const viewed: string[] = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '[]')
-    if (viewed.includes(sessionId)) return false
-    localStorage.setItem(VIEW_KEY, JSON.stringify([...viewed, sessionId]))
-    return true
-  } catch { return true }
-}
-
-function getLocalReactions(sessionId: string): string[] {
-  try {
-    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
-    return all[sessionId] ?? []
-  } catch { return [] }
-}
-
-function saveLocalReaction(sessionId: string, type: string) {
-  try {
-    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
-    all[sessionId] = [...(all[sessionId] ?? []), type]
-    localStorage.setItem(REACT_KEY, JSON.stringify(all))
-  } catch {}
-}
-
-function removeLocalReaction(sessionId: string, type: string) {
-  try {
-    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
-    all[sessionId] = (all[sessionId] ?? []).filter((t) => t !== type)
-    localStorage.setItem(REACT_KEY, JSON.stringify(all))
-  } catch {}
-}
-
-type ReactionCounts = { user: number; investor: number; builder: number }
-
-const REACTIONS: { type: keyof ReactionCounts; emoji: string; label: string }[] = [
-  { type: 'user',     emoji: '👤', label: "I'm the user" },
-  { type: 'investor', emoji: '💰', label: "I'd fund this" },
-  { type: 'builder',  emoji: '🔨', label: "I'd build this" },
-]
 
 export function ShareView({
   sessionId,
@@ -103,7 +71,6 @@ export function ShareView({
   const [listed, setListed] = useState(initialListed)
   const [listingLoading, setListingLoading] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
-  const [bubble, setBubble] = useState<{ type: keyof ReactionCounts; id: number } | null>(null)
 
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
@@ -141,7 +108,7 @@ export function ShareView({
     window.open(xUrl, '_blank', 'noopener,noreferrer')
   }
 
-  async function react(type: keyof ReactionCounts) {
+  async function react(type: ReactionType) {
     if (myReactions.includes(type)) {
       // Unreact — trust server count as source of truth
       removeLocalReaction(sessionId, type)
@@ -162,9 +129,6 @@ export function ShareView({
     saveLocalReaction(sessionId, type)
     setMyReactions((prev) => [...prev, type])
     setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
-    const bubbleId = Date.now()
-    setBubble({ type, id: bubbleId })
-    setTimeout(() => setBubble((b) => (b?.id === bubbleId ? null : b)), 1100)
     try {
       await fetch(`/api/session/${sessionId}/react`, {
         method: 'POST',
@@ -341,35 +305,16 @@ export function ShareView({
 
           {/* Reaction pills */}
           <div className="flex items-center gap-1.5">
-            {REACTIONS.map(({ type, emoji, label }) => {
-              const reacted = myReactions.includes(type)
-              const count = counts[type]
-              return (
-                <div key={type} className="relative">
-                  {bubble?.type === type && (
-                    <div
-                      key={bubble.id}
-                      className="absolute bottom-full left-1/2 mb-3 px-3 py-1.5 bg-white text-zinc-900 rounded-full text-xs font-semibold whitespace-nowrap shadow-lg animate-reaction-bubble"
-                    >
-                      {label}!
-                    </div>
-                  )}
-                  <button
-                    onClick={() => react(type)}
-                    title={label}
-                    className={[
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 active:scale-95',
-                      reacted
-                        ? 'bg-violet-600 text-white'
-                        : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200',
-                    ].join(' ')}
-                  >
-                    <span className="text-sm leading-none">{emoji}</span>
-                    {count > 0 && <span className={reacted ? 'text-violet-200' : 'text-zinc-600'}>{count}</span>}
-                  </button>
-                </div>
-              )
-            })}
+            {REACTIONS.map(({ type, icon, label }) => (
+              <ReactionPill
+                key={type}
+                icon={icon}
+                label={label}
+                count={counts[type]}
+                reacted={myReactions.includes(type)}
+                onReact={() => react(type)}
+              />
+            ))}
           </div>
 
           {/* Share actions */}
