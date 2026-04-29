@@ -203,11 +203,20 @@ function parseVisionDocument(markdown: string) {
   return { title, sections }
 }
 
-function VisionProgress({ content }: { content: string }) {
+const PROGRESS_PHRASES = [
+  'Listening…',
+  'Working on it…',
+  'Building the picture…',
+  'Narrowing in…',
+  'Almost there…',
+]
+
+function VisionProgress({ content, messageCount }: { content: string; messageCount: number }) {
   const { title, sections } = parseVisionDocument(content)
   const completedCount = sections.filter((s) => s.complete).length
   const nextIdx = sections.findIndex((s) => !s.complete)
   const hasStarted = content.length > 0
+  const progressPhrase = PROGRESS_PHRASES[Math.min(Math.floor(messageCount / 4), PROGRESS_PHRASES.length - 1)]
 
   // Feature 2: Vision Velocity Pulse — briefly animate newly-completed section dots
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set())
@@ -335,7 +344,7 @@ function VisionProgress({ content }: { content: string }) {
               {/* Active section placeholder */}
               {isNext && (
                 <div className="ml-[26px] mb-3 pl-3 border-l-2 border-violet-900/40">
-                  <p className="text-[11px] text-violet-800 italic">In progress…</p>
+                  <p className="text-[11px] text-violet-800 italic transition-all duration-500">{progressPhrase}</p>
                 </div>
               )}
             </div>
@@ -738,7 +747,7 @@ export function ChatView({
   // ─── Shared artifact content renderer ────────────────────────────────────
   function renderTabContent() {
     if (activeTab === 'vision') {
-      return <VisionProgress content={vision} />
+      return <VisionProgress content={vision} messageCount={visibleMessages.length} />
     }
 
     if (activeTab === 'actions') {
