@@ -15,20 +15,40 @@ function download(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
-const VIEW_STORAGE_KEY = 'kora_viewed_sessions'
+const VIEW_KEY = 'kora_viewed_sessions'
+const REACT_KEY = 'kora_reactions'
 
-function recordView(sessionId: string) {
+function recordView(sessionId: string): boolean {
   try {
-    const raw = localStorage.getItem(VIEW_STORAGE_KEY)
-    const viewed: string[] = raw ? JSON.parse(raw) : []
+    const viewed: string[] = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '[]')
     if (viewed.includes(sessionId)) return false
-    viewed.push(sessionId)
-    localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(viewed))
+    localStorage.setItem(VIEW_KEY, JSON.stringify([...viewed, sessionId]))
     return true
-  } catch {
-    return true
-  }
+  } catch { return true }
 }
+
+function getLocalReactions(sessionId: string): string[] {
+  try {
+    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
+    return all[sessionId] ?? []
+  } catch { return [] }
+}
+
+function saveLocalReaction(sessionId: string, type: string) {
+  try {
+    const all: Record<string, string[]> = JSON.parse(localStorage.getItem(REACT_KEY) ?? '{}')
+    all[sessionId] = [...(all[sessionId] ?? []), type]
+    localStorage.setItem(REACT_KEY, JSON.stringify(all))
+  } catch {}
+}
+
+type ReactionCounts = { user: number; investor: number; builder: number }
+
+const REACTIONS: { type: keyof ReactionCounts; label: string; emoji: string }[] = [
+  { type: 'user',     label: "I'm the target user", emoji: '👤' },
+  { type: 'investor', label: "I'd fund this",        emoji: '💰' },
+  { type: 'builder',  label: "I'd build this",       emoji: '🔨' },
+]
 
 export function ShareView({
   sessionId,
@@ -37,6 +57,8 @@ export function ShareView({
   vision,
   parkingLot,
   viewCount: initialViewCount,
+  reactionCounts: initialCounts,
+  listed: initialListed,
 }: {
   sessionId: string
   idea: string | null
@@ -44,16 +66,23 @@ export function ShareView({
   vision: string
   parkingLot: string
   viewCount: number
+  reactionCounts: ReactionCounts
+  listed: boolean
 }) {
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState<'vision' | 'parking'>('vision')
   const [viewCount, setViewCount] = useState(initialViewCount)
+  const [counts, setCounts] = useState<ReactionCounts>(initialCounts)
+  const [myReactions, setMyReactions] = useState<string[]>([])
+  const [listed, setListed] = useState(initialListed)
+  const [listingLoading, setListingLoading] = useState(false)
 
   const hasContent = !!(vision || parkingLot)
   const wedge = parseWedge(vision)
   const persona = parseUserPersona(vision)
 
   useEffect(() => {
+    setMyReactions(getLocalReactions(sessionId))
     const isNew = recordView(sessionId)
     if (!isNew) return
     fetch(`/api/session/${sessionId}/view`, { method: 'POST' })
@@ -74,7 +103,6 @@ export function ShareView({
       : `Check out this vision built with @KoraAI`
     const pageUrl = window.location.href
 
-    // Web Share API: on mobile this opens the native share sheet (includes X app)
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ text, url: pageUrl })
@@ -85,9 +113,37 @@ export function ShareView({
       }
       return
     }
-
-    // Desktop: open X web intent directly
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + '\n' + pageUrl)}`, '_blank', 'noopener,noreferrer')
+  }
+
+  async function react(type: keyof ReactionCounts) {
+    if (myReactions.includes(type)) return
+    saveLocalReaction(sessionId, type)
+    setMyReactions((prev) => [...prev, type])
+    setCounts((prev) => ({ ...prev, [type]: prev[type] + 1 }))
+    try {
+      const res = await fetch(`/api/session/${sessionId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      })
+      const { counts: updated } = await res.json()
+      if (updated) setCounts(updated)
+    } catch {}
+  }
+
+  async function toggleListed() {
+    setListingLoading(true)
+    const next = !listed
+    try {
+      await fetch(`/api/session/${sessionId}/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listed: next }),
+      })
+      setListed(next)
+    } catch {}
+    setListingLoading(false)
   }
 
   function downloadAll() {
@@ -214,16 +270,46 @@ export function ShareView({
               </div>
             )}
 
+            {/* Reactions */}
+            {activeTab === 'vision' && vision && (
+              <div className="space-y-3">
+                <p className="text-[11px] font-mono text-zinc-600 uppercase tracking-widest">Signal</p>
+                <div className="flex flex-wrap gap-2">
+                  {REACTIONS.map(({ type, label, emoji }) => {
+                    const reacted = myReactions.includes(type)
+                    const count = counts[type]
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => react(type)}
+                        disabled={reacted}
+                        className={[
+                          'flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm transition-all',
+                          reacted
+                            ? 'border-violet-700/60 bg-violet-950/40 text-violet-300 cursor-default'
+                            : 'border-zinc-800/70 text-zinc-400 hover:border-violet-800/50 hover:text-violet-300 hover:bg-violet-950/20',
+                        ].join(' ')}
+                      >
+                        <span>{emoji}</span>
+                        <span>{label}</span>
+                        {count > 0 && (
+                          <span className={`text-xs font-mono ${reacted ? 'text-violet-400' : 'text-zinc-600'}`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* "I'm the user" CTA */}
             {persona && activeTab === 'vision' && (
               <div className="border border-violet-900/40 bg-violet-950/20 rounded-xl p-5 space-y-3">
                 <p className="text-xs font-mono uppercase tracking-widest text-violet-500">The User</p>
-                <p className="text-sm text-zinc-400 leading-relaxed">
-                  {persona}
-                </p>
-                <p className="text-sm text-zinc-500">
-                  Does this sound like you?
-                </p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{persona}</p>
+                <p className="text-sm text-zinc-500">Does this sound like you?</p>
                 <Link
                   href="/"
                   className="inline-flex items-center gap-2 text-sm font-medium text-violet-300 hover:text-violet-200 transition-colors"
@@ -241,6 +327,40 @@ export function ShareView({
               >
                 Share on X
               </button>
+            )}
+
+            {/* Gallery toggle */}
+            {vision && (
+              <div className="flex items-center justify-between border border-zinc-800/60 rounded-xl px-5 py-4">
+                <div className="space-y-0.5">
+                  <p className="text-sm text-zinc-300 font-medium">Public gallery</p>
+                  <p className="text-xs text-zinc-600">
+                    {listed
+                      ? 'Listed on the public visions feed.'
+                      : 'Add this vision to the public feed so others can discover it.'}
+                  </p>
+                </div>
+                <button
+                  onClick={toggleListed}
+                  disabled={listingLoading}
+                  className={[
+                    'shrink-0 ml-4 relative inline-flex h-6 w-11 rounded-full border transition-colors duration-200',
+                    listed
+                      ? 'bg-violet-600 border-violet-500'
+                      : 'bg-zinc-800 border-zinc-700',
+                    listingLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer',
+                  ].join(' ')}
+                  role="switch"
+                  aria-checked={listed}
+                >
+                  <span
+                    className={[
+                      'inline-block h-5 w-5 mt-px rounded-full bg-white shadow transition-transform duration-200',
+                      listed ? 'translate-x-5' : 'translate-x-px',
+                    ].join(' ')}
+                  />
+                </button>
+              </div>
             )}
 
             {/* Individual downloads */}

@@ -7,6 +7,7 @@ import { saveSession, loadSessions, type StoredSession } from '@/lib/sessions'
 
 type Stats = { ideasKilled: number; completedSessions: number; killRate: number | null; visionsFormed: number }
 type RecentSession = StoredSession & { title?: string }
+type PublicVision = { id: string; idea: string | null; createdAt: string; viewCount: number; wedge: string; reactions: number }
 
 export default function Home() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function Home() {
   const [displayCount, setDisplayCount] = useState(0)
   const [displayVisions, setDisplayVisions] = useState(0)
   const [barWidth, setBarWidth] = useState(0)
+  const [publicVisions, setPublicVisions] = useState<PublicVision[]>([])
   const storyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -40,6 +42,10 @@ export default function Home() {
     fetch('/api/stats')
       .then((r) => r.json())
       .then((s: Stats) => setStats(s))
+      .catch(() => {})
+    fetch('/api/visions?limit=6')
+      .then((r) => r.json())
+      .then(({ visions }: { visions: PublicVision[] }) => setPublicVisions(visions ?? []))
       .catch(() => {})
   }, [])
 
@@ -502,6 +508,48 @@ export default function Home() {
 
         </div>
       </section>
+
+      {/* Public visions gallery */}
+      {publicVisions.length > 0 && (
+        <section className="border-t border-zinc-800/50 px-4 sm:px-6 py-16 sm:py-20">
+          <div className="max-w-3xl mx-auto space-y-8">
+            <div className="flex items-end justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">From the community</p>
+                <h2 className="text-lg font-bold text-zinc-200">Public Visions</h2>
+              </div>
+              <Link href="/visions" className="text-xs font-mono text-zinc-600 hover:text-violet-400 transition-colors">
+                View all →
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {publicVisions.map((v) => (
+                <Link
+                  key={v.id}
+                  href={`/session/${v.id}/view`}
+                  className="flex items-start justify-between gap-4 border border-zinc-800/60 hover:border-zinc-700/80 bg-zinc-900/20 hover:bg-zinc-900/40 rounded-xl px-4 py-4 transition-all group"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors truncate">
+                      {v.idea ?? `Vision ${v.id.slice(0, 8)}`}
+                    </p>
+                    {v.wedge && (
+                      <p className="text-xs text-zinc-500 leading-relaxed line-clamp-1">{v.wedge}</p>
+                    )}
+                    {(v.viewCount > 0 || v.reactions > 0) && (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        {v.viewCount > 0 && <span className="text-[10px] font-mono text-zinc-700">{v.viewCount.toLocaleString()} views</span>}
+                        {v.reactions > 0 && <span className="text-[10px] font-mono text-zinc-700">{v.reactions} signals</span>}
+                      </div>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-xs text-zinc-700 group-hover:text-zinc-500 transition-colors mt-0.5">↗</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   )
 }
