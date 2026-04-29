@@ -1230,7 +1230,7 @@ export function ChatView({
                   <button
                     type="submit"
                     disabled={isLoading || !input.trim()}
-                    className="min-h-[48px] min-w-[64px] px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all shadow-[0_0_16px_rgba(139,92,246,0.25)] hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:shadow-none"
+                    className={`min-h-[48px] min-w-[64px] px-5 py-3 bg-violet-600 text-white rounded-lg text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-violet-500 active:bg-violet-700 transition-all disabled:shadow-none ${input.trim() && !isLoading ? 'animate-send-breathe' : 'shadow-[0_0_16px_rgba(139,92,246,0.25)]'}`}
                   >
                     Send
                   </button>

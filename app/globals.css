@@ -178,6 +178,15 @@ body::before {
   scrollbar-color: rgb(63 63 70 / 0.5) transparent;
 }
 
+/* Send button glow-breathe when user has typed something */
+@keyframes send-breathe {
+  0%, 100% { box-shadow: 0 0 12px rgba(139, 92, 246, 0.25); }
+  50%       { box-shadow: 0 0 22px rgba(139, 92, 246, 0.55); }
+}
+.animate-send-breathe {
+  animation: send-breathe 2.4s ease-in-out infinite;
+}
+
 /* Deferred badge bounce when a new idea is parked */
 @keyframes badge-bounce {
   0%   { transform: scale(1); }
