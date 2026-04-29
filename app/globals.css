@@ -178,6 +178,18 @@ body::before {
   scrollbar-color: rgb(63 63 70 / 0.5) transparent;
 }
 
+/* Input shake on submit error */
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.animate-input-shake {
+  animation: input-shake 0.35s ease-in-out forwards;
+}
+
 /* Directional message entrance */
 @keyframes slide-from-right {
   from { opacity: 0; transform: translateX(12px); }

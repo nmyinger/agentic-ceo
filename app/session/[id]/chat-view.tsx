@@ -404,6 +404,7 @@ export function ChatView({
   const [showScrollPill, setShowScrollPill] = useState(false)
   const [flashProgress, setFlashProgress] = useState(false)
   const prevVisionProgressRef = useRef(0)
+  const [shakeInput, setShakeInput] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
@@ -657,6 +658,15 @@ export function ChatView({
     }
     prevVisionProgressRef.current = visionProgress
   }, [visionProgress])
+
+  // Shake the input when an error appears
+  useEffect(() => {
+    if (!hasError) return
+    navigator.vibrate?.([10, 50, 10])
+    setShakeInput(true)
+    const t = setTimeout(() => setShakeInput(false), 350)
+    return () => clearTimeout(t)
+  }, [hasError])
 
   // Lock body scroll when bottom sheet is open (prevents iOS bounce on backdrop)
   useEffect(() => {
@@ -1196,7 +1206,7 @@ export function ChatView({
                     <p className="text-sm text-zinc-500 leading-relaxed whitespace-pre-wrap">{peerInput}</p>
                   </div>
                 )}
-                <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+                <form onSubmit={handleSubmit} className={`flex gap-3 items-end ${shakeInput ? 'animate-input-shake' : ''}`}>
                   <textarea
                     ref={textareaRef}
                     value={input}
