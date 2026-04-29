@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const limitedIds = ids.slice(0, 50)
 
   const [{ data: sessions }, { data: artifacts }] = await Promise.all([
-    sb.from('sessions').select('id, created_at, idea, status, gate').in('id', limitedIds),
+    sb.from('sessions').select('id, created_at, idea, status, gate, parent_session_id').in('id', limitedIds),
     sb
       .from('artifacts')
       .select('session_id, content')
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       idea: s.idea as string | null,
       status: s.status as string | null,
       gate: (s.gate as number | null) ?? 1,
+      parentSessionId: (s.parent_session_id as string | null) ?? null,
       hasVision: visionMap.has(s.id as string),
       visionExcerpt:
         visionMap

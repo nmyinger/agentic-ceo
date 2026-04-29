@@ -9,9 +9,150 @@ type SessionCard = {
   id: string
   createdAt: string
   idea: string | null
+  status: string | null
+  gate: number
+  parentSessionId: string | null
   hasVision: boolean
   visionExcerpt: string | null
   savedAt: string
+}
+
+type SessionGroup = {
+  root: SessionCard
+  children: SessionCard[]
+  latestAt: string
+}
+
+const GATE_LABELS: Record<number, string> = {
+  1: 'Vision Architect',
+  2: 'Pattern Confirmation',
+  3: 'Business Model',
+  4: 'Go-to-Market',
+  5: 'Launch',
+}
+
+const GATE_COLORS: Record<number, { badge: string; dot: string; border: string; continueBtn: string }> = {
+  1: {
+    badge: 'text-violet-400 border-violet-800/50 bg-violet-950/20',
+    dot: 'bg-violet-500',
+    border: 'hover:border-violet-800/50 hover:bg-violet-950/10',
+    continueBtn: 'text-violet-400 border-violet-800/50 hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20',
+  },
+  2: {
+    badge: 'text-teal-400 border-teal-800/50 bg-teal-950/20',
+    dot: 'bg-teal-500',
+    border: 'hover:border-teal-800/50 hover:bg-teal-950/10',
+    continueBtn: 'text-teal-400 border-teal-800/50 hover:border-teal-600/60 hover:text-teal-300 hover:bg-teal-950/20',
+  },
+}
+
+function getGateColors(gate: number) {
+  return GATE_COLORS[gate] ?? GATE_COLORS[1]
+}
+
+function groupSessions(sessions: SessionCard[]): SessionGroup[] {
+  const idSet = new Set(sessions.map((s) => s.id))
+
+  // Roots: no parent, or parent not in our local set
+  const roots = sessions.filter((s) => !s.parentSessionId || !idSet.has(s.parentSessionId))
+
+  // Build child map
+  const childMap = new Map<string, SessionCard[]>()
+  for (const s of sessions) {
+    if (s.parentSessionId && idSet.has(s.parentSessionId)) {
+      const arr = childMap.get(s.parentSessionId) ?? []
+      arr.push(s)
+      childMap.set(s.parentSessionId, arr)
+    }
+  }
+
+  const groups: SessionGroup[] = roots.map((root) => {
+    const children = (childMap.get(root.id) ?? []).sort((a, b) => a.gate - b.gate)
+    const allDates = [root.savedAt, ...children.map((c) => c.savedAt)]
+    const latestAt = allDates.reduce((a, b) => (a > b ? a : b))
+    return { root, children, latestAt }
+  })
+
+  // Sort groups newest-first by most recent activity in the group
+  return groups.sort((a, b) => (a.latestAt > b.latestAt ? -1 : 1))
+}
+
+function SessionCardInner({
+  session,
+  onForget,
+}: {
+  session: SessionCard
+  onForget: (id: string) => void
+}) {
+  const colors = getGateColors(session.gate)
+  const label = GATE_LABELS[session.gate] ?? `Gate ${session.gate}`
+  const isCompleted = session.status === 'completed'
+
+  return (
+    <div className={`group border border-zinc-800/60 ${colors.border} rounded-xl p-5 transition-all space-y-3`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1.5 min-w-0 flex-1">
+          {/* Gate badge + status row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono border rounded-full px-2 py-0.5 ${colors.badge}`}>
+              <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
+              Gate {session.gate} — {label}
+            </span>
+            {isCompleted && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-600 border border-emerald-800/40 rounded-full px-2 py-0.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                complete
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          {session.idea ? (
+            <p className="text-sm text-zinc-200 font-medium group-hover:text-white transition-colors">
+              {session.idea}
+            </p>
+          ) : (
+            <p className="text-sm text-zinc-600 italic">No title yet</p>
+          )}
+
+          {/* Vision excerpt */}
+          {session.visionExcerpt && (
+            <p className="text-xs text-zinc-600 leading-relaxed line-clamp-2">
+              {session.visionExcerpt}
+            </p>
+          )}
+        </div>
+
+        <p className="shrink-0 text-[10px] font-mono text-zinc-700 mt-0.5">
+          {new Date(session.savedAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1 flex-wrap">
+        <Link
+          href={`/session/${session.id}`}
+          className={`text-xs font-semibold border rounded-lg px-4 min-h-[44px] flex items-center transition-all ${colors.continueBtn}`}
+        >
+          {isCompleted ? 'Review →' : 'Continue →'}
+        </Link>
+        {session.hasVision && (
+          <Link
+            href={`/session/${session.id}/view`}
+            className="text-xs text-zinc-500 border border-zinc-800/70 rounded-lg px-4 min-h-[44px] flex items-center hover:border-zinc-700 hover:text-zinc-400 transition-colors"
+          >
+            View results ↗
+          </Link>
+        )}
+        <button
+          onClick={() => onForget(session.id)}
+          className="text-xs text-zinc-700 hover:text-zinc-500 px-3 min-h-[44px] flex items-center transition-colors ml-auto"
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function SessionsPage() {
@@ -48,6 +189,9 @@ export default function SessionsPage() {
             id: s.id,
             createdAt: s.savedAt,
             idea: null,
+            status: null,
+            gate: 1,
+            parentSessionId: null,
             hasVision: false,
             visionExcerpt: null,
             savedAt: s.savedAt,
@@ -74,6 +218,8 @@ export default function SessionsPage() {
     removeSession(id)
     setSessions((prev) => prev.filter((s) => s.id !== id))
   }
+
+  const groups = groupSessions(sessions)
 
   return (
     <main className="bg-zinc-950 text-zinc-100 min-h-screen">
@@ -122,59 +268,29 @@ export default function SessionsPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                className="border border-zinc-800/60 hover:border-violet-800/50 hover:bg-violet-950/10 rounded-xl p-5 transition-all space-y-3 group"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono text-zinc-600">{session.id.slice(0, 8)}</span>
-                      {session.hasVision && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-600 border border-emerald-800/40 rounded-full px-2 py-0.5">
-                          <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                          Vision ready
-                        </span>
-                      )}
-                    </div>
-                    {session.idea ? (
-                      <p className="text-sm text-zinc-200 font-medium group-hover:text-white transition-colors">{session.idea}</p>
-                    ) : (
-                      <p className="text-sm text-zinc-600 italic">No title yet</p>
-                    )}
-                    {session.visionExcerpt && (
-                      <p className="text-xs text-zinc-600 leading-relaxed line-clamp-2">
-                        {session.visionExcerpt}
-                      </p>
-                    )}
-                  </div>
-                  <p className="shrink-0 text-[10px] font-mono text-zinc-700">
-                    {new Date(session.savedAt).toLocaleDateString()}
-                  </p>
-                </div>
+          <div className="space-y-6">
+            {groups.map(({ root, children }) => (
+              <div key={root.id}>
+                {/* Root session card */}
+                <SessionCardInner session={root} onForget={forget} />
 
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
-                  <Link
-                    href={`/session/${session.id}`}
-                    className="text-xs font-semibold text-violet-400 border border-violet-800/50 rounded-lg px-4 min-h-[44px] flex items-center hover:border-violet-600/60 hover:text-violet-300 hover:bg-violet-950/20 transition-all"
-                  >
-                    Continue →
-                  </Link>
-                  <Link
-                    href={`/session/${session.id}/view`}
-                    className="text-xs text-zinc-500 border border-zinc-800/70 rounded-lg px-4 min-h-[44px] flex items-center hover:border-zinc-700 hover:text-zinc-400 transition-colors"
-                  >
-                    View results ↗
-                  </Link>
-                  <button
-                    onClick={() => forget(session.id)}
-                    className="text-xs text-zinc-700 hover:text-zinc-500 px-3 min-h-[44px] flex items-center transition-colors ml-auto"
-                  >
-                    Remove
-                  </button>
-                </div>
+                {/* Child sessions — connected by a vertical line */}
+                {children.length > 0 && (
+                  <div className="relative mt-2 ml-5">
+                    {/* Vertical connector line */}
+                    <div className="absolute left-0 top-0 bottom-4 w-px bg-zinc-800" />
+
+                    <div className="space-y-2 pl-6">
+                      {children.map((child) => (
+                        <div key={child.id} className="relative">
+                          {/* Horizontal tick */}
+                          <div className="absolute -left-6 top-[26px] w-6 h-px bg-zinc-800" />
+                          <SessionCardInner session={child} onForget={forget} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
