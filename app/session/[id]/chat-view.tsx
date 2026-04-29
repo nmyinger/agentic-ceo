@@ -1105,9 +1105,9 @@ export function ChatView({
                   <span className="text-[9px] font-bold font-mono text-violet-400">K</span>
                 </div>
                 <div className="flex items-center gap-1 pt-1.5">
-                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce [animation-delay:300ms]" />
+                  <span className="typing-dot w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                  <span className="typing-dot w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                  <span className="typing-dot w-1.5 h-1.5 rounded-full bg-zinc-500" />
                 </div>
               </div>
             )}
