@@ -178,6 +178,16 @@ body::before {
   scrollbar-color: rgb(63 63 70 / 0.5) transparent;
 }
 
+/* Vision progress bar flash when a section completes */
+@keyframes progress-flash {
+  0%   { opacity: 1; }
+  30%  { opacity: 1; filter: brightness(2.5); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+.animate-progress-flash {
+  animation: progress-flash 0.5s ease-out forwards;
+}
+
 /* Typing indicator wave — each dot rises then falls in sequence */
 @keyframes typing-wave {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }

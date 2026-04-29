@@ -402,6 +402,8 @@ export function ChatView({
   const bottomRef = useRef<HTMLDivElement>(null)
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const [showScrollPill, setShowScrollPill] = useState(false)
+  const [flashProgress, setFlashProgress] = useState(false)
+  const prevVisionProgressRef = useRef(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const started = useRef(false)
   const typingChannelRef = useRef<RealtimeChannel | null>(null)
@@ -644,6 +646,17 @@ export function ChatView({
     }
     prevMessageCountRef.current = visibleMessages.length
   }, [visibleMessages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Flash the header progress bar when a vision section completes
+  useEffect(() => {
+    if (visionProgress > prevVisionProgressRef.current && visionProgress > 0) {
+      setFlashProgress(true)
+      const t = setTimeout(() => setFlashProgress(false), 500)
+      prevVisionProgressRef.current = visionProgress
+      return () => clearTimeout(t)
+    }
+    prevVisionProgressRef.current = visionProgress
+  }, [visionProgress])
 
   // Lock body scroll when bottom sheet is open (prevents iOS bounce on backdrop)
   useEffect(() => {
@@ -971,7 +984,7 @@ export function ChatView({
         {/* Mobile vision progress bar — thin indicator at bottom of header */}
         <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-800/40 lg:hidden">
           <div
-            className="h-full bg-violet-500/60 transition-all duration-700"
+            className={`h-full bg-violet-500/60 transition-all duration-700 ${flashProgress ? 'animate-progress-flash' : ''}`}
             style={{ width: `${visionProgress}%` }}
           />
         </div>
